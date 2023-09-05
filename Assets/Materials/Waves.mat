@@ -42,7 +42,7 @@ Material:
         m_Offset: {x: 0, y: 0}
     - _MainTex:
         m_Texture: {fileID: 0}
-        m_Scale: {x: 2, y: 2}
+        m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MetallicGlossMap:
         m_Texture: {fileID: 0}
@@ -56,7 +56,10 @@ Material:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
-    m_Ints: []
+    m_Ints:
+    - _MajorDirectionX: 1
+    - _MajorDirectionZ: 1
+    - _WaveNumber: 1
     m_Floats:
     - _Amplitude: 0.7
     - _Angularfrequency: 60
@@ -69,7 +72,7 @@ Material:
     - _GlossyReflections: 1
     - _Gravity: 9.81
     - _Initialphase: 10
-    - _Metallic: 0.071
+    - _Metallic: 0
     - _Mode: 0
     - _OcclusionStrength: 1
     - _Parallax: 0.02
@@ -84,12 +87,13 @@ Material:
     - _Wavelength: 6
     - _Wavenumber: 0.5
     - _Wavespeed: 20
+    - _WindSpeed: 1
     - _ZWrite: 1
     m_Colors:
-    - _Color: {r: 0.21444462, g: 0.60623014, b: 0.745283, a: 1}
+    - _Color: {r: 0.32694018, g: 0.7411061, b: 0.8773585, a: 1}
     - _Direction: {r: 1, g: 1, b: 0, a: 0}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
-    - _WaveA: {r: 1, g: 1, b: 0.25, a: 60}
-    - _WaveB: {r: 1, g: 0.6, b: 0.25, a: 31}
-    - _WaveC: {r: 1, g: 1.3, b: 0.25, a: 18}
+    - _WaveA: {r: 1, g: 1, b: 0.25, a: 20}
+    - _WaveB: {r: 1, g: 0.6, b: 0.25, a: 13.3}
+    - _WaveC: {r: 1, g: 1.3, b: 0.25, a: 11.2}
   m_BuildTextureStacks: []
