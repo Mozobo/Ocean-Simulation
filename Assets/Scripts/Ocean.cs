@@ -41,7 +41,7 @@ public class Ocean : MonoBehaviour
         mesh.triangles = triangles;
     }
 
-    private void Generate(){
+    private void GenerateWaterPlane(){
         GetComponent<MeshFilter>().mesh = mesh = new Mesh();
 		mesh.name = "Procedural Grid";
 
@@ -63,6 +63,7 @@ public class Ocean : MonoBehaviour
             return v1 * s;
     }
 
+    // Generates a 2D Texture on each pixel contains a Vector4 on x and y are random numbers from -1 to 1 and z and w are 0
     private Texture2D GenerateRandomNoiseTexture(){
         Texture2D noiseTexture = new Texture2D(xSize, zSize, TextureFormat.RGFloat, false, true);
 
@@ -84,6 +85,8 @@ public class Ocean : MonoBehaviour
         return noiseTexture;
     }
 
+    // If there already exists a Random Noise texture, returns it
+    // else generates a new texture
     private void GetRandomNoiseTexture(){
         string filename = "RandomNoiseTexture" + xSize.ToString() + "x" + zSize.ToString() + ".asset";
         #if UNITY_EDITOR
@@ -93,7 +96,7 @@ public class Ocean : MonoBehaviour
     }
 
     void Awake(){
-        Generate();
+        GenerateWaterPlane();
         GetRandomNoiseTexture();
     }
 
