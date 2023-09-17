@@ -7,18 +7,41 @@ using UnityEngine;
 public class Ocean : MonoBehaviour
 {
     [SerializeField, Range(1, 1000)]
-    public int xSize = 2, zSize = 2;
+    public int size = 2;
+    public int texturesSize = 256;
+    public float lengthScale = 1.0f;
+
+
+    //Ocean parameters
+    public float windSpeed = 1.0f;
+    public Vector2 windDirection = new Vector2(1.0f, 1.0f);
+    public float gravity = 9.81f;
+    public float fetch = 1.0f;
+    public float depth = 4.0f;
+    public float cutoffHigh = 1.0f;
+    public float cutoffLow = 0.1f;
+
     private Vector3[] vertices;
     private int[] triangles;
     private Mesh mesh;
-    private Texture2D randomNoiseTexture;
+
     private const string texturesPath = "Assets/Textures/";
 
-    private void GenerateVertices(){
-        vertices = new Vector3[(xSize + 1) * (zSize + 1)];
+    public ComputeShader initialSpectrumComputeShader;
+    private Texture2D randomNoiseTexture;
+    private RenderTexture initialSpectrumTexture;
 
-		for (int i = 0, z = 0; z <= zSize; z++) {
-			for (int x = 0; x <= xSize; x++, i++) {
+    const int LOCAL_WORK_GROUPS_X = 8;
+    const int LOCAL_WORK_GROUPS_Y = 8;
+
+    int KERNEL_INITIAL_SPECTRUM;
+
+
+    private void GenerateVertices(){
+        vertices = new Vector3[(size + 1) * (size + 1)];
+
+		for (int i = 0, z = 0; z <= size; z++) {
+			for (int x = 0; x <= size; x++, i++) {
 				vertices[i] = new Vector3(x, 0, z);
 			}
 		}
@@ -27,14 +50,14 @@ public class Ocean : MonoBehaviour
     }
 
     private void GenerateTriangles(){
-        int[] triangles = new int[xSize * zSize * 6];
+        int[] triangles = new int[size * size * 6];
 
-		for (int ti = 0, vi = 0, z = 0; z < zSize; z++, vi++) {
-			for (int x = 0; x < xSize; x++, ti += 6, vi++) {
+		for (int ti = 0, vi = 0, z = 0; z < size; z++, vi++) {
+			for (int x = 0; x < size; x++, ti += 6, vi++) {
 				triangles[ti] = vi;
 				triangles[ti + 3] = triangles[ti + 2] = vi + 1;
-				triangles[ti + 4] = triangles[ti + 1] = vi + xSize + 1;
-				triangles[ti + 5] = vi + xSize + 2;
+				triangles[ti + 4] = triangles[ti + 1] = vi + size + 1;
+				triangles[ti + 5] = vi + size + 2;
 			}
 		}
 
@@ -47,6 +70,22 @@ public class Ocean : MonoBehaviour
 
         GenerateVertices();
         GenerateTriangles();
+    }
+
+    private Texture2D CreateTexture2D(){
+        return new Texture2D(texturesSize, texturesSize, TextureFormat.RGFloat, false, true);
+    } 
+
+    private RenderTexture CreateRenderTexture(){
+        RenderTexture rt = new RenderTexture(texturesSize, texturesSize, 0, RenderTextureFormat.RGFloat, RenderTextureReadWrite.sRGB);
+        rt.useMipMap = false;
+        rt.autoGenerateMips = false;
+        rt.anisoLevel = 6;
+        rt.filterMode = FilterMode.Trilinear;
+        rt.wrapMode = TextureWrapMode.Repeat;
+        rt.enableRandomWrite = true;
+        rt.Create();
+        return rt;
     }
 
     // Generates a random number from a Normal Distribution N(0, 1)
@@ -63,14 +102,16 @@ public class Ocean : MonoBehaviour
             return v1 * s;
     }
 
-    // Generates a 2D Texture on each pixel contains a Vector4 on x and y are random numbers from -1 to 1 and z and w are 0
+    // Generates a 2D Texture where each pixel contains a Vector4 on x and y are random numbers from -1 to 1 and z and w are 0
+    // This texture is generated on the CPU because we don't need to generate new random noise when the ocean parameters change
+    // So this texture is generated only once and at the start of the game execution
     private Texture2D GenerateRandomNoiseTexture(){
-        Texture2D noiseTexture = new Texture2D(xSize, zSize, TextureFormat.RGFloat, false, true);
+        Texture2D noiseTexture = CreateTexture2D();
 
         noiseTexture.filterMode = FilterMode.Point;
-        for (int i = 0; i < xSize; i++)
+        for (int i = 0; i < texturesSize; i++)
         {
-            for (int j = 0; j < zSize; j++)
+            for (int j = 0; j < texturesSize; j++)
             {
                 noiseTexture.SetPixel(i, j, new Vector4(GenerateRandomNumber(), GenerateRandomNumber()));
             }
@@ -78,7 +119,7 @@ public class Ocean : MonoBehaviour
         noiseTexture.Apply();
 
         #if UNITY_EDITOR
-            string filename = "RandomNoiseTexture" + xSize.ToString() + "x" + zSize.ToString()+ ".asset";
+            string filename = "RandomNoiseTexture" + texturesSize.ToString() + "x" + texturesSize.ToString()+ ".asset";
             AssetDatabase.CreateAsset(noiseTexture, texturesPath + filename);
         #endif
 
@@ -88,16 +129,58 @@ public class Ocean : MonoBehaviour
     // If there already exists a Random Noise texture, returns it
     // else generates a new texture
     private void GetRandomNoiseTexture(){
-        string filename = "RandomNoiseTexture" + xSize.ToString() + "x" + zSize.ToString() + ".asset";
+        string filename = "RandomNoiseTexture" + texturesSize.ToString() + "x" + texturesSize.ToString() + ".asset";
         #if UNITY_EDITOR
             Texture2D noiseTexture = (Texture2D)AssetDatabase.LoadAssetAtPath(texturesPath + filename, typeof(Texture2D));
         #endif
         randomNoiseTexture = noiseTexture ? noiseTexture : GenerateRandomNoiseTexture();
     }
 
+    // Generate a new Render Texture for the Initial Spectrum
+    private RenderTexture CreateInitialSpectrumTexture(){
+        RenderTexture newInitialSpectrumTexture = CreateRenderTexture();
+
+        #if UNITY_EDITOR
+            string filename = "InitialSpectrumTexture" + texturesSize.ToString() + "x" + texturesSize.ToString() + ".asset";
+            AssetDatabase.CreateAsset(newInitialSpectrumTexture, texturesPath + filename);
+        #endif
+
+        return newInitialSpectrumTexture;
+    }
+
+    // Passes all variables to the InitialSpectrum.compute compute shader and tells the GPU to do the calculations for the texture
+    private void CalculateInitialSpectrumTexture(){
+        KERNEL_INITIAL_SPECTRUM = initialSpectrumComputeShader.FindKernel("CalculateInitialSpectrumTexture");
+        initialSpectrumComputeShader.SetInt("_TextureSize", texturesSize);
+        initialSpectrumComputeShader.SetTexture(KERNEL_INITIAL_SPECTRUM, "_RandomNoise", randomNoiseTexture);
+        initialSpectrumComputeShader.SetTexture(KERNEL_INITIAL_SPECTRUM, "_InitialSpectrumTexture", initialSpectrumTexture);
+        initialSpectrumComputeShader.SetFloat("_LengthScale", lengthScale);
+        initialSpectrumComputeShader.SetFloat("_WindSpeed", windSpeed);
+        initialSpectrumComputeShader.SetFloat("_WindDirectionX", windDirection.x);
+        initialSpectrumComputeShader.SetFloat("_WindDirectionY", windDirection.y);
+        initialSpectrumComputeShader.SetFloat("_Gravity", gravity);
+        initialSpectrumComputeShader.SetFloat("_Fetch", fetch);
+        initialSpectrumComputeShader.SetFloat("_CutoffHigh", cutoffHigh);
+        initialSpectrumComputeShader.SetFloat("_CutoffLow", cutoffLow);
+        initialSpectrumComputeShader.SetFloat("_Depth", depth);
+        initialSpectrumComputeShader.Dispatch(KERNEL_INITIAL_SPECTRUM, texturesSize/LOCAL_WORK_GROUPS_X, texturesSize/LOCAL_WORK_GROUPS_Y, 1);
+    }
+
+    // If there already exists a Initial Spectrum texture, returns it
+    // else generates a new texture and calculates the Initial Spectrum
+    private void GetInitialSpectrumTexture(){
+        string filename = "InitialSpectrumTexture" + texturesSize.ToString() + "x" + texturesSize.ToString() + ".asset";
+        #if UNITY_EDITOR
+            RenderTexture foundinitialSpectrumTexture = (RenderTexture)AssetDatabase.LoadAssetAtPath(texturesPath + filename, typeof(RenderTexture));
+        #endif
+        initialSpectrumTexture = foundinitialSpectrumTexture ? foundinitialSpectrumTexture : CreateInitialSpectrumTexture();
+        CalculateInitialSpectrumTexture();
+    }
+
     void Awake(){
         GenerateWaterPlane();
         GetRandomNoiseTexture();
+        GetInitialSpectrumTexture();
     }
 
     // Uncomment this function to visualize vertices

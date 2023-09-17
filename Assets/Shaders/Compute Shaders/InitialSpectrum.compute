@@ -1,0 +1,99 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CalculateInitialSpectrumTexture
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+
+static const float PI = 3.14159265;
+
+RWTexture2D<float2> _InitialSpectrumTexture;
+Texture2D<float2> _RandomNoise;
+
+uint _TextureSize;
+float _LengthScale;
+float _WindSpeed;
+float _WindDirectionX;
+float _WindDirectionY;
+float _Gravity;
+float _Fetch;
+float _CutoffHigh;
+float _CutoffLow;
+float _Depth;
+
+// Returns wave angular frequency
+// For more info: https://en.wikipedia.org/wiki/Dispersion_(water_waves)
+float AngularFrequency(float k){
+    return sqrt(_Gravity * k * tanh(min(k * _Depth, 20)));
+}
+
+// Returns water spectrum based on the JONSWAP Spectrum
+// https://wikiwaves.org/Ocean-Wave_Spectra
+float JONSWAP(float angularFrequency, float peakAngularFrequency){
+    float alpha = 0.076f * pow(abs(_WindSpeed * _WindSpeed/(_Fetch * _Gravity)), 0.22f);
+    float gamma = 3.3f;
+    float sigma = angularFrequency <= peakAngularFrequency ? 0.07f : 0.09f;
+
+    float frequencyMinusPeakFrequency = angularFrequency - peakAngularFrequency;
+    float r = exp(-(frequencyMinusPeakFrequency * frequencyMinusPeakFrequency)/(2 * sigma * sigma * peakAngularFrequency * peakAngularFrequency));
+
+    float oneOverFrequency = 1 / angularFrequency;
+    float peakFrequencyOverFrequency = peakAngularFrequency / angularFrequency;
+
+    return alpha * _Gravity * _Gravity * oneOverFrequency * oneOverFrequency * oneOverFrequency * oneOverFrequency * oneOverFrequency * exp(-1.25 * peakFrequencyOverFrequency * peakFrequencyOverFrequency * peakFrequencyOverFrequency * peakFrequencyOverFrequency) * pow(abs(gamma), r);
+}
+
+// Returns s
+// https://www.sciencedirect.com/topics/engineering/directional-spreading (fig. 5.63 and 5.64)
+float SpreadPower(float angularFrequency, float peakAngularFrequency){
+    if(angularFrequency < 1.05 * peakAngularFrequency) return 6.97 * pow(abs(angularFrequency/peakAngularFrequency), 4.06);
+
+    float peakSpeed = _Gravity/peakAngularFrequency;
+    float mu = -2.33 - 1.45 * (_WindSpeed/peakSpeed - 1.17);
+    return 9.77 * pow(abs(angularFrequency/peakAngularFrequency), mu);
+}
+
+float NormalisationFactor(float s) {
+    float s2 = s * s;
+    float s3 = s2 * s;
+    float s4 = s3 * s;
+    if (s < 5) return -0.000564 * s4 + 0.00776 * s3 - 0.044 * s2 + 0.192 * s + 0.163;
+    return -4.80e-08 * s4 + 1.07e-05 * s3 - 9.53e-04 * s2 + 5.90e-02 * s + 3.93e-01;
+}
+
+// Returns directional spread from given frequency and angle
+// https://www.sciencedirect.com/topics/engineering/directional-spreading
+float DirectionalSpread(float angularFrequency, float peakAngularFrequency, float theta){
+    float s = SpreadPower(angularFrequency, peakAngularFrequency);
+    float windTheta = atan2(_WindDirectionX, _WindDirectionY);
+
+    return NormalisationFactor(s) * pow(abs(0.5 * (theta - windTheta)), 2 * s);
+}
+
+float FrequencyDerivative(float k, float angularFrequency){
+    float th = tanh(min(k * _Depth, 20));
+    float ch = cosh(k * _Depth);
+    return _Gravity * (_Depth * k / ch / ch + th) / (angularFrequency * 2);
+}
+
+[numthreads(8,8,1)]
+void CalculateInitialSpectrumTexture (uint3 id : SV_DispatchThreadID)
+{
+    float deltaK = 2 * PI/_LengthScale;
+    float halfSize = _TextureSize/2;
+    int nx = id.x - halfSize;
+    int nz = id.y - halfSize;
+    float2 kVector = float2(nx, nz) * deltaK;
+    // K is the wavenumber
+    float k = length(kVector);
+
+    if(k >= _CutoffLow && k <= _CutoffHigh){
+        float kAngle = atan2(kVector.y, kVector.x);
+        float angularFrequency = AngularFrequency(k);
+        // The peak frequency is calculated here because we also need it for the directional spread
+        float peakAngularFrequency = 22 * pow(abs(_Gravity * _Gravity/(_WindSpeed * _Fetch)), 0.3333f);
+
+        _InitialSpectrumTexture[id.xy] = float2(_RandomNoise[id.xy].x, _RandomNoise[id.xy]. y) * sqrt(2 * JONSWAP(angularFrequency, peakAngularFrequency) * DirectionalSpread(angularFrequency, peakAngularFrequency, kAngle) * abs(FrequencyDerivative(k, angularFrequency)) / k * deltaK * deltaK);
+    } else {
+        _InitialSpectrumTexture[id.xy] = 0.0f;
+    }
+}
