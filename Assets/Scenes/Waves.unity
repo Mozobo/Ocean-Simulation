@@ -496,12 +496,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   size: 100
   texturesSize: 256
-  lengthScale: 250
-  windSpeed: 100
+  lengthScale: 10
+  windSpeed: 26.26
   windDirection: {x: 1, y: 1}
   gravity: 9.81
-  fetch: 1000
-  depth: 1000
-  cutoffHigh: 10
+  fetch: 100
+  depth: 100
+  cutoffHigh: 100
   cutoffLow: 0.05
   initialSpectrumComputeShader: {fileID: 7200000, guid: 144b0692df3a18a428518879543d9214, type: 3}

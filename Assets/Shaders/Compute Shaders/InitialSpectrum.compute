@@ -6,8 +6,9 @@
 
 static const float PI = 3.14159265;
 
-RWTexture2D<float2> _InitialSpectrumTexture;
+RWTexture2D<float4> _InitialSpectrumTexture;
 Texture2D<float2> _RandomNoise;
+RWTexture2D<float4> _WavesDataTexture;
 
 uint _TextureSize;
 float _LengthScale;
@@ -92,8 +93,12 @@ void CalculateInitialSpectrumTexture (uint3 id : SV_DispatchThreadID)
         // The peak frequency is calculated here because we also need it for the directional spread
         float peakAngularFrequency = 22 * pow(abs(_Gravity * _Gravity/(_WindSpeed * _Fetch)), 0.3333f);
 
-        _InitialSpectrumTexture[id.xy] = float2(_RandomNoise[id.xy].x, _RandomNoise[id.xy]. y) * sqrt(2 * JONSWAP(angularFrequency, peakAngularFrequency) * DirectionalSpread(angularFrequency, peakAngularFrequency, kAngle) * abs(FrequencyDerivative(k, angularFrequency)) / k * deltaK * deltaK);
+        _InitialSpectrumTexture[id.xy] = float4(float2(_RandomNoise[id.xy].x, _RandomNoise[id.xy]. y) * sqrt(2 * JONSWAP(angularFrequency, peakAngularFrequency) * DirectionalSpread(angularFrequency, peakAngularFrequency, kAngle) * abs(FrequencyDerivative(k, angularFrequency)) / k * deltaK * deltaK), 0.0, 0.0);
+        // WavesData Texture contains information of the wave on each pixel
+        // float4(direction on the x axis, 1/k for the FFT, direction on the z axis, wave frequency);
+        _WavesDataTexture[id.xy] = float4(kVector.x, 1/k, kVector.y, angularFrequency);
     } else {
         _InitialSpectrumTexture[id.xy] = 0.0f;
+        _WavesDataTexture[id.xy] = float4(kVector.x, 1, kVector.y, 0);
     }
 }

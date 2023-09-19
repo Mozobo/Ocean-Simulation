@@ -30,6 +30,7 @@ public class Ocean : MonoBehaviour
     public ComputeShader initialSpectrumComputeShader;
     private Texture2D randomNoiseTexture;
     private RenderTexture initialSpectrumTexture;
+    private RenderTexture WavesDataTexture;
 
     const int LOCAL_WORK_GROUPS_X = 8;
     const int LOCAL_WORK_GROUPS_Y = 8;
@@ -154,6 +155,7 @@ public class Ocean : MonoBehaviour
         initialSpectrumComputeShader.SetInt("_TextureSize", texturesSize);
         initialSpectrumComputeShader.SetTexture(KERNEL_INITIAL_SPECTRUM, "_RandomNoise", randomNoiseTexture);
         initialSpectrumComputeShader.SetTexture(KERNEL_INITIAL_SPECTRUM, "_InitialSpectrumTexture", initialSpectrumTexture);
+        initialSpectrumComputeShader.SetTexture(KERNEL_INITIAL_SPECTRUM, "_WavesDataTexture", WavesDataTexture);
         initialSpectrumComputeShader.SetFloat("_LengthScale", lengthScale);
         initialSpectrumComputeShader.SetFloat("_WindSpeed", windSpeed);
         initialSpectrumComputeShader.SetFloat("_WindDirectionX", windDirection.x);
@@ -177,9 +179,29 @@ public class Ocean : MonoBehaviour
         CalculateInitialSpectrumTexture();
     }
 
+    private RenderTexture CreateWavesDataTexture(){
+        RenderTexture newWavesDataTexture = CreateRenderTexture();
+
+        #if UNITY_EDITOR
+            string filename = "WavesDataTexture" + texturesSize.ToString() + "x" + texturesSize.ToString() + ".asset";
+            AssetDatabase.CreateAsset(newWavesDataTexture, texturesPath + filename);
+        #endif
+
+        return newWavesDataTexture;
+    }
+
+    private void GetWavesDataTexture(){
+        string filename = "WavesDataTexture" + texturesSize.ToString() + "x" + texturesSize.ToString() + ".asset";
+        #if UNITY_EDITOR
+            RenderTexture foundWavesDataTexture = (RenderTexture)AssetDatabase.LoadAssetAtPath(texturesPath + filename, typeof(RenderTexture));
+        #endif
+        WavesDataTexture = foundWavesDataTexture ? foundWavesDataTexture : CreateWavesDataTexture();
+    }
+
     void Awake(){
         GenerateWaterPlane();
         GetRandomNoiseTexture();
+        GetWavesDataTexture();
         GetInitialSpectrumTexture();
     }
 
