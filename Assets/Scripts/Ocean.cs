@@ -36,6 +36,7 @@ public class Ocean : MonoBehaviour
     const int LOCAL_WORK_GROUPS_Y = 8;
 
     int KERNEL_INITIAL_SPECTRUM;
+    int KERNEL_CONJUGATED_SPECTRUM;
 
 
     private void GenerateVertices(){
@@ -137,20 +138,8 @@ public class Ocean : MonoBehaviour
         randomNoiseTexture = noiseTexture ? noiseTexture : GenerateRandomNoiseTexture();
     }
 
-    // Generate a new Render Texture for the Initial Spectrum
-    private RenderTexture CreateInitialSpectrumTexture(){
-        RenderTexture newInitialSpectrumTexture = CreateRenderTexture();
-
-        #if UNITY_EDITOR
-            string filename = "InitialSpectrumTexture" + texturesSize.ToString() + "x" + texturesSize.ToString() + ".asset";
-            AssetDatabase.CreateAsset(newInitialSpectrumTexture, texturesPath + filename);
-        #endif
-
-        return newInitialSpectrumTexture;
-    }
-
-    // Passes all variables to the InitialSpectrum.compute compute shader and tells the GPU to do the calculations for the texture
     private void CalculateInitialSpectrumTexture(){
+        // Calculate the initial spectrum H0(K)
         KERNEL_INITIAL_SPECTRUM = initialSpectrumComputeShader.FindKernel("CalculateInitialSpectrumTexture");
         initialSpectrumComputeShader.SetInt("_TextureSize", texturesSize);
         initialSpectrumComputeShader.SetTexture(KERNEL_INITIAL_SPECTRUM, "_RandomNoise", randomNoiseTexture);
@@ -166,36 +155,22 @@ public class Ocean : MonoBehaviour
         initialSpectrumComputeShader.SetFloat("_CutoffLow", cutoffLow);
         initialSpectrumComputeShader.SetFloat("_Depth", depth);
         initialSpectrumComputeShader.Dispatch(KERNEL_INITIAL_SPECTRUM, texturesSize/LOCAL_WORK_GROUPS_X, texturesSize/LOCAL_WORK_GROUPS_Y, 1);
+
+        // Store, in each element on the texture, the value of the complex conjugate element
+        // Now the Initial spectrum texture stores H0(K) and H0(-k)*
+        KERNEL_CONJUGATED_SPECTRUM = initialSpectrumComputeShader.FindKernel("CalculateConjugatedInitialSpectrumTexture");
+        initialSpectrumComputeShader.SetTexture(KERNEL_CONJUGATED_SPECTRUM, "_InitialSpectrumTexture", initialSpectrumTexture);
+        initialSpectrumComputeShader.SetInt("_TextureSize", texturesSize);
+        initialSpectrumComputeShader.Dispatch(KERNEL_CONJUGATED_SPECTRUM, texturesSize/LOCAL_WORK_GROUPS_X, texturesSize/LOCAL_WORK_GROUPS_Y, 1);
     }
 
-    // If there already exists a Initial Spectrum texture, returns it
-    // else generates a new texture and calculates the Initial Spectrum
     private void GetInitialSpectrumTexture(){
-        string filename = "InitialSpectrumTexture" + texturesSize.ToString() + "x" + texturesSize.ToString() + ".asset";
-        #if UNITY_EDITOR
-            RenderTexture foundinitialSpectrumTexture = (RenderTexture)AssetDatabase.LoadAssetAtPath(texturesPath + filename, typeof(RenderTexture));
-        #endif
-        initialSpectrumTexture = foundinitialSpectrumTexture ? foundinitialSpectrumTexture : CreateInitialSpectrumTexture();
+        initialSpectrumTexture = CreateRenderTexture();
         CalculateInitialSpectrumTexture();
     }
 
-    private RenderTexture CreateWavesDataTexture(){
-        RenderTexture newWavesDataTexture = CreateRenderTexture();
-
-        #if UNITY_EDITOR
-            string filename = "WavesDataTexture" + texturesSize.ToString() + "x" + texturesSize.ToString() + ".asset";
-            AssetDatabase.CreateAsset(newWavesDataTexture, texturesPath + filename);
-        #endif
-
-        return newWavesDataTexture;
-    }
-
     private void GetWavesDataTexture(){
-        string filename = "WavesDataTexture" + texturesSize.ToString() + "x" + texturesSize.ToString() + ".asset";
-        #if UNITY_EDITOR
-            RenderTexture foundWavesDataTexture = (RenderTexture)AssetDatabase.LoadAssetAtPath(texturesPath + filename, typeof(RenderTexture));
-        #endif
-        WavesDataTexture = foundWavesDataTexture ? foundWavesDataTexture : CreateWavesDataTexture();
+        WavesDataTexture = CreateRenderTexture();
     }
 
     void Awake(){
