@@ -1,7 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-﻿using UnityEditor;
+using UnityEditor;
 
 [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
 public class Ocean : MonoBehaviour
@@ -28,8 +28,10 @@ public class Ocean : MonoBehaviour
     private const string texturesPath = "Assets/Textures/";
 
     public ComputeShader initialSpectrumComputeShader;
+    public ComputeShader IFFTComputeShader;
     private Texture2D randomNoiseTexture;
     private RenderTexture initialSpectrumTexture;
+    private RenderTexture TwiddleFactorsAndInputIndicesTexture;
     private RenderTexture WavesDataTexture;
 
     const int LOCAL_WORK_GROUPS_X = 8;
@@ -37,6 +39,7 @@ public class Ocean : MonoBehaviour
 
     int KERNEL_INITIAL_SPECTRUM;
     int KERNEL_CONJUGATED_SPECTRUM;
+    int KERNEL_IFFT_SPECTRUM;
 
 
     private void GenerateVertices(){
@@ -167,6 +170,15 @@ public class Ocean : MonoBehaviour
     private void GetInitialSpectrumTexture(){
         initialSpectrumTexture = CreateRenderTexture();
         CalculateInitialSpectrumTexture();
+    }
+
+    private void CalculateTwiddleFactorsAndInputIndicesTexture(){
+        int logSize = (int)Mathf.Log(texturesSize, 2);
+        TwiddleFactorsAndInputIndicesTexture = CreateRenderTexture();
+        KERNEL_IFFT_SPECTRUM = IFFTComputeShader.FindKernel("PrecomputeTwiddleFactorsAndInputIndices");
+        IFFTComputeShader.SetInt("_TextureSize", texturesSize);
+        IFFTComputeShader.SetTexture(KERNEL_IFFT_SPECTRUM, "_TwiddleFactorsAndInputIndicesTexture", TwiddleFactorsAndInputIndicesTexture);
+        IFFTComputeShader.Dispatch(KERNEL_IFFT_SPECTRUM, logSize, texturesSize/2/LOCAL_WORK_GROUPS_Y, 1);
     }
 
     private void GetWavesDataTexture(){
