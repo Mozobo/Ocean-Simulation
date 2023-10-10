@@ -1,0 +1,58 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CalculateTimeDependentComplexAmplitudesAndDerivatives
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+RWTexture2D<float2> _DxTexture;
+RWTexture2D<float2> _DyTexture;
+RWTexture2D<float2> _DzTexture;
+
+RWTexture2D<float2> _DyDxTexture;
+RWTexture2D<float2> _DyDzTexture;
+RWTexture2D<float2> _DxDxTexture;
+RWTexture2D<float2> _DzDzTexture;
+
+Texture2D<float4> _ConjugatedInitialSpectrumTexture;
+Texture2D<float4> _WavesDataTexture;
+float _Time;
+
+float2 ComplexMult(float2 a, float2 b){
+	return float2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x);
+}
+
+[numthreads(8,8,1)]
+void CalculateTimeDependentComplexAmplitudesAndDerivatives (uint3 id : SV_DispatchThreadID){
+    float4 wave = _WavesDataTexture[id.xy];
+	float phase = wave.w * _Time;
+	float2 exponent = float2(cos(phase), sin(phase));
+	float2 h = ComplexMult(_ConjugatedInitialSpectrumTexture[id.xy].xy, exponent) + ComplexMult(_ConjugatedInitialSpectrumTexture[id.xy].zw, float2(exponent.x, -exponent.y));
+	float2 ih = float2(-h.y, h.x);
+
+    /*float2 DisplacementX = ih * wave.x * wave.y;
+	float2 DisplacementY = h;
+	float2 DisplacementZ = ih * wave.z * wave.y;
+		 
+    float2 DisplacementYDx = ih * wave.x;
+    float2 DisplacementYDz = ih * wave.z;
+
+	float2 DisplacementXDx = -h * wave.x * wave.x * wave.y;
+	float2 DisplacementZDz = -h * wave.z * wave.z * wave.y;*/
+
+    float2 displacementYDx = ih * wave.x;
+    float2 displacementYDz = ih * wave.z;
+
+    float2 displacementX = displacementYDx * wave.y;
+	float2 displacementY = h;
+	float2 displacementZ = displacementYDz * wave.y;
+		 
+	float2 displacementXDx = -h * wave.x * wave.x * wave.y;
+	float2 displacementZDz = -h * wave.z * wave.z * wave.y;
+
+    _DxTexture[id.xy] = float2(displacementX.x, displacementX.y);
+    _DyTexture[id.xy] = float2(displacementY.x, displacementY.y);
+    _DzTexture[id.xy] = float2(displacementZ.x, displacementZ.y);
+    _DyDxTexture[id.xy] = float2(displacementYDx.x, displacementYDx.y);
+    _DyDzTexture[id.xy] = float2(displacementYDz.x, displacementYDz.y);
+    _DxDxTexture[id.xy] = float2(displacementXDx.x, displacementXDx.y);
+    _DzDzTexture[id.xy] = float2(displacementZDz.x, displacementZDz.y);
+}

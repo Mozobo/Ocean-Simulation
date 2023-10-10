@@ -505,4 +505,4 @@ MonoBehaviour:
   cutoffHigh: 100
   cutoffLow: 0.05
   initialSpectrumComputeShader: {fileID: 7200000, guid: 144b0692df3a18a428518879543d9214, type: 3}
-  FFTComputeShader: {fileID: 0}
+  IFFTComputeShader: {fileID: 7200000, guid: f19e8a0c2e58e754693e824f6b04256d, type: 3}

@@ -29,10 +29,18 @@ public class Ocean : MonoBehaviour
 
     public ComputeShader initialSpectrumComputeShader;
     public ComputeShader IFFTComputeShader;
+    public ComputeShader TimeDependentSpectrumComputeShader;
     private Texture2D randomNoiseTexture;
     private RenderTexture initialSpectrumTexture;
     private RenderTexture TwiddleFactorsAndInputIndicesTexture;
     private RenderTexture WavesDataTexture;
+    private RenderTexture DxTexture;
+    private RenderTexture DyTexture;
+    private RenderTexture DzTexture;
+    private RenderTexture DyDxTexture;
+    private RenderTexture DyDzTexture;
+    private RenderTexture DxDxTexture;
+    private RenderTexture DzDzTexture;
 
     const int LOCAL_WORK_GROUPS_X = 8;
     const int LOCAL_WORK_GROUPS_Y = 8;
@@ -40,6 +48,7 @@ public class Ocean : MonoBehaviour
     int KERNEL_INITIAL_SPECTRUM;
     int KERNEL_CONJUGATED_SPECTRUM;
     int KERNEL_IFFT_SPECTRUM;
+    int KERNEL_TIME_DEPENDENT_SPECTRUM;
 
 
     private void GenerateVertices(){
@@ -185,11 +194,39 @@ public class Ocean : MonoBehaviour
         WavesDataTexture = CreateRenderTexture();
     }
 
+    private void CalculateWavesTexturesAtTime(float time) {
+        KERNEL_TIME_DEPENDENT_SPECTRUM = TimeDependentSpectrumComputeShader.FindKernel("CalculateTimeDependentComplexAmplitudesAndDerivatives");
+        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_ConjugatedInitialSpectrumTexture", initialSpectrumTexture);
+        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_WavesDataTexture", WavesDataTexture);
+        TimeDependentSpectrumComputeShader.SetFloat("_Time", time);
+        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DxTexture", DxTexture);
+        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DyTexture", DyTexture);
+        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DzTexture", DzTexture);
+        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DyDxTexture", DyDxTexture);
+        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DyDzTexture", DyDzTexture);
+        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DxDxTexture", DxDxTexture);
+        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DzDzTexture", DzDzTexture);
+        TimeDependentSpectrumComputeShader.Dispatch(KERNEL_TIME_DEPENDENT_SPECTRUM, texturesSize/LOCAL_WORK_GROUPS_X, texturesSize/LOCAL_WORK_GROUPS_Y, 1);
+    }
+
+    private void GetComplexAmplitudesAndDerivativesTextures() {
+        DxTexture = CreateRenderTexture();
+        DyTexture = CreateRenderTexture();
+        DzTexture = CreateRenderTexture();
+        DyDxTexture = CreateRenderTexture();
+        DyDzTexture = CreateRenderTexture();
+        DxDxTexture = CreateRenderTexture();
+        DzDzTexture = CreateRenderTexture();
+    }
+
     void Awake(){
         GenerateWaterPlane();
         GetRandomNoiseTexture();
         GetWavesDataTexture();
         GetInitialSpectrumTexture();
+        CalculateTwiddleFactorsAndInputIndicesTexture();
+        GetComplexAmplitudesAndDerivativesTextures();
+        CalculateWavesTexturesAtTime(0.0f);
     }
 
     // Uncomment this function to visualize vertices
