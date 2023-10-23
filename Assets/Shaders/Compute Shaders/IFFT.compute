@@ -12,7 +12,6 @@ static const float PI = 3.14159265;
 
 
 RWTexture2D<float4> _TwiddleFactorsAndInputIndicesTexture;
-RWTexture2D<float4> _WavesDataTexture;
 RWTexture2D<float2> _InputTexture;
 RWTexture2D<float2> _PingPongTexture;
 uint _TextureSize;
@@ -45,7 +44,7 @@ void PrecomputeTwiddleFactorsAndInputIndices(uint3 id : SV_DispatchThreadID) {
 
 [numthreads(8, 8, 1)]
 void HorizontalStepIFFT(uint3 id : SV_DispatchThreadID){
-	float4 data = _WavesDataTexture[uint2(_Step, id.x)];
+	float4 data = _TwiddleFactorsAndInputIndicesTexture[uint2(_Step, id.x)];
 	uint2 inputsIndices = (uint2)data.ba;
 	if (!_PingPong) _InputTexture[id.xy] = _PingPongTexture[uint2(inputsIndices.x, id.y)] + ComplexMult(float2(data.r, -data.g), _PingPongTexture[uint2(inputsIndices.y, id.y)]);
 	else _PingPongTexture[id.xy] = _InputTexture[uint2(inputsIndices.x, id.y)] + ComplexMult(float2(data.r, -data.g), _InputTexture[uint2(inputsIndices.y, id.y)]);
@@ -53,7 +52,7 @@ void HorizontalStepIFFT(uint3 id : SV_DispatchThreadID){
 
 [numthreads(8, 8, 1)]
 void VerticalStepIFFT(uint3 id : SV_DispatchThreadID){
-	float4 data = _WavesDataTexture[uint2(_Step, id.y)];
+	float4 data = _TwiddleFactorsAndInputIndicesTexture[uint2(_Step, id.y)];
 	uint2 inputsIndices = (uint2)data.ba;
 	if (!_PingPong) _InputTexture[id.xy] = _PingPongTexture[uint2(id.x, inputsIndices.x)] + ComplexMult(float2(data.r, -data.g), _PingPongTexture[uint2(id.x, inputsIndices.y)]);
 	else _PingPongTexture[id.xy] = _InputTexture[uint2(id.x, inputsIndices.x)] + ComplexMult(float2(data.r, -data.g), _InputTexture[uint2(id.x, inputsIndices.y)]);

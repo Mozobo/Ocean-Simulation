@@ -28,11 +28,11 @@ public class Ocean : MonoBehaviour
     private const string texturesPath = "Assets/Textures/";
 
     public ComputeShader initialSpectrumComputeShader;
-    public ComputeShader IFFTComputeShader;
     public ComputeShader TimeDependentSpectrumComputeShader;
+    public ComputeShader IFFTComputeShader;
+    private IFFT IFFT;
     private Texture2D randomNoiseTexture;
     private RenderTexture initialSpectrumTexture;
-    private RenderTexture TwiddleFactorsAndInputIndicesTexture;
     private RenderTexture WavesDataTexture;
     private RenderTexture DxTexture;
     private RenderTexture DyTexture;
@@ -47,7 +47,6 @@ public class Ocean : MonoBehaviour
 
     int KERNEL_INITIAL_SPECTRUM;
     int KERNEL_CONJUGATED_SPECTRUM;
-    int KERNEL_IFFT_SPECTRUM;
     int KERNEL_TIME_DEPENDENT_SPECTRUM;
 
 
@@ -181,15 +180,6 @@ public class Ocean : MonoBehaviour
         CalculateInitialSpectrumTexture();
     }
 
-    private void CalculateTwiddleFactorsAndInputIndicesTexture(){
-        int logSize = (int)Mathf.Log(texturesSize, 2);
-        TwiddleFactorsAndInputIndicesTexture = CreateRenderTexture();
-        KERNEL_IFFT_SPECTRUM = IFFTComputeShader.FindKernel("PrecomputeTwiddleFactorsAndInputIndices");
-        IFFTComputeShader.SetInt("_TextureSize", texturesSize);
-        IFFTComputeShader.SetTexture(KERNEL_IFFT_SPECTRUM, "_TwiddleFactorsAndInputIndicesTexture", TwiddleFactorsAndInputIndicesTexture);
-        IFFTComputeShader.Dispatch(KERNEL_IFFT_SPECTRUM, logSize, texturesSize/2/LOCAL_WORK_GROUPS_Y, 1);
-    }
-
     private void GetWavesDataTexture(){
         WavesDataTexture = CreateRenderTexture();
     }
@@ -207,6 +197,14 @@ public class Ocean : MonoBehaviour
         TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DxDxTexture", DxDxTexture);
         TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DzDzTexture", DzDzTexture);
         TimeDependentSpectrumComputeShader.Dispatch(KERNEL_TIME_DEPENDENT_SPECTRUM, texturesSize/LOCAL_WORK_GROUPS_X, texturesSize/LOCAL_WORK_GROUPS_Y, 1);
+
+        IFFT.InverseFastFourierTransform(DxTexture);
+        IFFT.InverseFastFourierTransform(DyTexture);
+        IFFT.InverseFastFourierTransform(DzTexture);
+        IFFT.InverseFastFourierTransform(DyDxTexture);
+        IFFT.InverseFastFourierTransform(DyDzTexture);
+        IFFT.InverseFastFourierTransform(DxDxTexture);
+        IFFT.InverseFastFourierTransform(DzDzTexture);
     }
 
     private void GetComplexAmplitudesAndDerivativesTextures() {
@@ -224,8 +222,8 @@ public class Ocean : MonoBehaviour
         GetRandomNoiseTexture();
         GetWavesDataTexture();
         GetInitialSpectrumTexture();
-        CalculateTwiddleFactorsAndInputIndicesTexture();
         GetComplexAmplitudesAndDerivativesTextures();
+        IFFT = new IFFT(IFFTComputeShader, texturesSize);
         CalculateWavesTexturesAtTime(0.0f);
     }
 
