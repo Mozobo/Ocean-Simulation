@@ -48,11 +48,11 @@ void CalculateTimeDependentComplexAmplitudesAndDerivatives (uint3 id : SV_Dispat
 	float2 displacementXDx = -h * wave.x * wave.x * wave.y;
 	float2 displacementZDz = -h * wave.z * wave.z * wave.y;
 
-    _DxTexture[id.xy] = float2(displacementX.x, displacementX.y);
-    _DyTexture[id.xy] = float2(displacementY.x, displacementY.y);
-    _DzTexture[id.xy] = float2(displacementZ.x, displacementZ.y);
-    _DyDxTexture[id.xy] = float2(displacementYDx.x, displacementYDx.y);
-    _DyDzTexture[id.xy] = float2(displacementYDz.x, displacementYDz.y);
-    _DxDxTexture[id.xy] = float2(displacementXDx.x, displacementXDx.y);
-    _DzDzTexture[id.xy] = float2(displacementZDz.x, displacementZDz.y);
+    _DxTexture[id.xy] = displacementX;
+    _DyTexture[id.xy] = displacementY;
+    _DzTexture[id.xy] = displacementZ;
+    _DyDxTexture[id.xy] = displacementYDx;
+    _DyDzTexture[id.xy] = displacementYDz;
+    _DxDxTexture[id.xy] = displacementXDx;
+    _DzDzTexture[id.xy] = displacementZDz;
 }

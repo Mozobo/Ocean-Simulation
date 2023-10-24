@@ -1,0 +1,31 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel FillResultTextures
+
+
+RWTexture2D<float3> _DisplacementTexture;
+RWTexture2D<float4> _DerivativesTexture;
+
+RWTexture2D<float> _DxTexture;
+RWTexture2D<float> _DyTexture;
+RWTexture2D<float> _DzTexture;
+
+RWTexture2D<float> _DyDxTexture;
+RWTexture2D<float> _DyDzTexture;
+RWTexture2D<float> _DxDxTexture;
+RWTexture2D<float> _DzDzTexture;
+
+[numthreads(8,8,1)]
+void FillResultTextures(uint3 id : SV_DispatchThreadID)
+{
+    float Dx = _DxTexture[id.xy];
+    float Dy = _DyTexture[id.xy];
+    float Dz = _DzTexture[id.xy];
+
+    float DyDx = _DyDxTexture[id.xy];
+    float DyDz = _DyDzTexture[id.xy];
+    float DxDx = _DxDxTexture[id.xy];
+    float DzDz = _DzDzTexture[id.xy];
+
+    _DisplacementTexture[id.xy] = float3(Dx, Dy, Dz);
+    _DerivativesTexture[id.xy] = float4(DxDx, DyDx, DyDz, DzDz);
+}

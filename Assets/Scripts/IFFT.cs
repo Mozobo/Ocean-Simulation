@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class IFFT : MonoBehaviour
+public class IFFT
 {
     private int KERNEL_IFFT_PRECOMPUTE_FACTORS_AND_INDICES;
     private int KERNEL_IFFT_HORIZONTAL_STEP;

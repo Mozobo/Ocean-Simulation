@@ -9,7 +9,6 @@ public class Ocean : MonoBehaviour
     [SerializeField, Range(1, 1000)]
     public int size = 2;
     public int texturesSize = 256;
-    public float lengthScale = 1.0f;
 
 
     //Ocean parameters
@@ -18,36 +17,19 @@ public class Ocean : MonoBehaviour
     public float gravity = 9.81f;
     public float fetch = 1.0f;
     public float depth = 4.0f;
-    public float cutoffHigh = 1.0f;
-    public float cutoffLow = 0.1f;
 
     private Vector3[] vertices;
     private int[] triangles;
     private Mesh mesh;
 
-    private const string texturesPath = "Assets/Textures/";
-
     public ComputeShader initialSpectrumComputeShader;
     public ComputeShader TimeDependentSpectrumComputeShader;
     public ComputeShader IFFTComputeShader;
-    private IFFT IFFT;
     private Texture2D randomNoiseTexture;
-    private RenderTexture initialSpectrumTexture;
-    private RenderTexture WavesDataTexture;
-    private RenderTexture DxTexture;
-    private RenderTexture DyTexture;
-    private RenderTexture DzTexture;
-    private RenderTexture DyDxTexture;
-    private RenderTexture DyDzTexture;
-    private RenderTexture DxDxTexture;
-    private RenderTexture DzDzTexture;
 
-    const int LOCAL_WORK_GROUPS_X = 8;
-    const int LOCAL_WORK_GROUPS_Y = 8;
-
-    int KERNEL_INITIAL_SPECTRUM;
-    int KERNEL_CONJUGATED_SPECTRUM;
-    int KERNEL_TIME_DEPENDENT_SPECTRUM;
+    public OceanCascade oceanCascade0;
+    public OceanCascade oceanCascade1;
+    public OceanCascade oceanCascade2;
 
 
     private void GenerateVertices(){
@@ -118,7 +100,7 @@ public class Ocean : MonoBehaviour
     // Generates a 2D Texture where each pixel contains a Vector4 on x and y are random numbers from -1 to 1 and z and w are 0
     // This texture is generated on the CPU because we don't need to generate new random noise when the ocean parameters change
     // So this texture is generated only once and at the start of the game execution
-    private Texture2D GenerateRandomNoiseTexture(){
+    private void GenerateRandomNoiseTexture(){
         Texture2D noiseTexture = CreateTexture2D();
 
         noiseTexture.filterMode = FilterMode.Point;
@@ -131,100 +113,19 @@ public class Ocean : MonoBehaviour
         }
         noiseTexture.Apply();
 
-        #if UNITY_EDITOR
-            string filename = "RandomNoiseTexture" + texturesSize.ToString() + "x" + texturesSize.ToString()+ ".asset";
-            AssetDatabase.CreateAsset(noiseTexture, texturesPath + filename);
-        #endif
-
-        return noiseTexture;
-    }
-
-    // If there already exists a Random Noise texture, returns it
-    // else generates a new texture
-    private void GetRandomNoiseTexture(){
-        string filename = "RandomNoiseTexture" + texturesSize.ToString() + "x" + texturesSize.ToString() + ".asset";
-        #if UNITY_EDITOR
-            Texture2D noiseTexture = (Texture2D)AssetDatabase.LoadAssetAtPath(texturesPath + filename, typeof(Texture2D));
-        #endif
-        randomNoiseTexture = noiseTexture ? noiseTexture : GenerateRandomNoiseTexture();
-    }
-
-    private void CalculateInitialSpectrumTexture(){
-        // Calculate the initial spectrum H0(K)
-        KERNEL_INITIAL_SPECTRUM = initialSpectrumComputeShader.FindKernel("CalculateInitialSpectrumTexture");
-        initialSpectrumComputeShader.SetInt("_TextureSize", texturesSize);
-        initialSpectrumComputeShader.SetTexture(KERNEL_INITIAL_SPECTRUM, "_RandomNoise", randomNoiseTexture);
-        initialSpectrumComputeShader.SetTexture(KERNEL_INITIAL_SPECTRUM, "_InitialSpectrumTexture", initialSpectrumTexture);
-        initialSpectrumComputeShader.SetTexture(KERNEL_INITIAL_SPECTRUM, "_WavesDataTexture", WavesDataTexture);
-        initialSpectrumComputeShader.SetFloat("_LengthScale", lengthScale);
-        initialSpectrumComputeShader.SetFloat("_WindSpeed", windSpeed);
-        initialSpectrumComputeShader.SetFloat("_WindDirectionX", windDirection.x);
-        initialSpectrumComputeShader.SetFloat("_WindDirectionY", windDirection.y);
-        initialSpectrumComputeShader.SetFloat("_Gravity", gravity);
-        initialSpectrumComputeShader.SetFloat("_Fetch", fetch);
-        initialSpectrumComputeShader.SetFloat("_CutoffHigh", cutoffHigh);
-        initialSpectrumComputeShader.SetFloat("_CutoffLow", cutoffLow);
-        initialSpectrumComputeShader.SetFloat("_Depth", depth);
-        initialSpectrumComputeShader.Dispatch(KERNEL_INITIAL_SPECTRUM, texturesSize/LOCAL_WORK_GROUPS_X, texturesSize/LOCAL_WORK_GROUPS_Y, 1);
-
-        // Store, in each element on the texture, the value of the complex conjugate element
-        // Now the Initial spectrum texture stores H0(K) and H0(-k)*
-        KERNEL_CONJUGATED_SPECTRUM = initialSpectrumComputeShader.FindKernel("CalculateConjugatedInitialSpectrumTexture");
-        initialSpectrumComputeShader.SetTexture(KERNEL_CONJUGATED_SPECTRUM, "_InitialSpectrumTexture", initialSpectrumTexture);
-        initialSpectrumComputeShader.SetInt("_TextureSize", texturesSize);
-        initialSpectrumComputeShader.Dispatch(KERNEL_CONJUGATED_SPECTRUM, texturesSize/LOCAL_WORK_GROUPS_X, texturesSize/LOCAL_WORK_GROUPS_Y, 1);
-    }
-
-    private void GetInitialSpectrumTexture(){
-        initialSpectrumTexture = CreateRenderTexture();
-        CalculateInitialSpectrumTexture();
-    }
-
-    private void GetWavesDataTexture(){
-        WavesDataTexture = CreateRenderTexture();
-    }
-
-    private void CalculateWavesTexturesAtTime(float time) {
-        KERNEL_TIME_DEPENDENT_SPECTRUM = TimeDependentSpectrumComputeShader.FindKernel("CalculateTimeDependentComplexAmplitudesAndDerivatives");
-        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_ConjugatedInitialSpectrumTexture", initialSpectrumTexture);
-        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_WavesDataTexture", WavesDataTexture);
-        TimeDependentSpectrumComputeShader.SetFloat("_Time", time);
-        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DxTexture", DxTexture);
-        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DyTexture", DyTexture);
-        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DzTexture", DzTexture);
-        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DyDxTexture", DyDxTexture);
-        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DyDzTexture", DyDzTexture);
-        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DxDxTexture", DxDxTexture);
-        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DzDzTexture", DzDzTexture);
-        TimeDependentSpectrumComputeShader.Dispatch(KERNEL_TIME_DEPENDENT_SPECTRUM, texturesSize/LOCAL_WORK_GROUPS_X, texturesSize/LOCAL_WORK_GROUPS_Y, 1);
-
-        IFFT.InverseFastFourierTransform(DxTexture);
-        IFFT.InverseFastFourierTransform(DyTexture);
-        IFFT.InverseFastFourierTransform(DzTexture);
-        IFFT.InverseFastFourierTransform(DyDxTexture);
-        IFFT.InverseFastFourierTransform(DyDzTexture);
-        IFFT.InverseFastFourierTransform(DxDxTexture);
-        IFFT.InverseFastFourierTransform(DzDzTexture);
-    }
-
-    private void GetComplexAmplitudesAndDerivativesTextures() {
-        DxTexture = CreateRenderTexture();
-        DyTexture = CreateRenderTexture();
-        DzTexture = CreateRenderTexture();
-        DyDxTexture = CreateRenderTexture();
-        DyDzTexture = CreateRenderTexture();
-        DxDxTexture = CreateRenderTexture();
-        DzDzTexture = CreateRenderTexture();
+        randomNoiseTexture = noiseTexture;
     }
 
     void Awake(){
         GenerateWaterPlane();
-        GetRandomNoiseTexture();
-        GetWavesDataTexture();
-        GetInitialSpectrumTexture();
-        GetComplexAmplitudesAndDerivativesTextures();
-        IFFT = new IFFT(IFFTComputeShader, texturesSize);
-        CalculateWavesTexturesAtTime(0.0f);
+        GenerateRandomNoiseTexture();
+        oceanCascade0.setVariables(texturesSize, windSpeed, windDirection, gravity, fetch, depth, initialSpectrumComputeShader, TimeDependentSpectrumComputeShader, IFFTComputeShader, randomNoiseTexture);
+        oceanCascade1.setVariables(texturesSize, windSpeed, windDirection, gravity, fetch, depth, initialSpectrumComputeShader, TimeDependentSpectrumComputeShader, IFFTComputeShader, randomNoiseTexture);
+        oceanCascade2.setVariables(texturesSize, windSpeed, windDirection, gravity, fetch, depth, initialSpectrumComputeShader, TimeDependentSpectrumComputeShader, IFFTComputeShader, randomNoiseTexture);
+
+        oceanCascade0.InitialCalculations();
+        oceanCascade1.InitialCalculations();
+        oceanCascade2.InitialCalculations();
     }
 
     // Uncomment this function to visualize vertices
