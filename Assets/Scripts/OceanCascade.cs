@@ -24,13 +24,10 @@ public class OceanCascade : MonoBehaviour
     private Texture2D randomNoiseTexture;
     private RenderTexture initialSpectrumTexture;
     private RenderTexture WavesDataTexture;
-    private RenderTexture DxTexture;
-    private RenderTexture DyTexture;
-    private RenderTexture DzTexture;
-    private RenderTexture DyDxTexture;
-    private RenderTexture DyDzTexture;
-    private RenderTexture DxDxTexture;
-    private RenderTexture DzDzTexture;
+    private RenderTexture DxDzTexture;
+    private RenderTexture DyDxzTexture;
+    private RenderTexture DyxDyzTexture;
+    private RenderTexture DxxDzzTexture;
 
     const int LOCAL_WORK_GROUPS_X = 8;
     const int LOCAL_WORK_GROUPS_Y = 8;
@@ -105,38 +102,29 @@ public class OceanCascade : MonoBehaviour
         TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_ConjugatedInitialSpectrumTexture", initialSpectrumTexture);
         TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_WavesDataTexture", WavesDataTexture);
         TimeDependentSpectrumComputeShader.SetFloat("_Time", time);
-        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DxTexture", DxTexture);
-        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DyTexture", DyTexture);
-        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DzTexture", DzTexture);
-        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DyDxTexture", DyDxTexture);
-        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DyDzTexture", DyDzTexture);
-        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DxDxTexture", DxDxTexture);
-        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DzDzTexture", DzDzTexture);
+        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DxDzTexture", DxDzTexture);
+        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DyDxzTexture", DyDxzTexture);
+        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DyxDyzTexture", DyxDyzTexture);
+        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DxxDzzTexture", DxxDzzTexture);
         TimeDependentSpectrumComputeShader.Dispatch(KERNEL_TIME_DEPENDENT_SPECTRUM, texturesSize/LOCAL_WORK_GROUPS_X, texturesSize/LOCAL_WORK_GROUPS_Y, 1);
 
-        IFFT.InverseFastFourierTransform(DxTexture);
-        IFFT.InverseFastFourierTransform(DyTexture);
-        IFFT.InverseFastFourierTransform(DzTexture);
-        IFFT.InverseFastFourierTransform(DyDxTexture);
-        IFFT.InverseFastFourierTransform(DyDzTexture);
-        IFFT.InverseFastFourierTransform(DxDxTexture);
-        IFFT.InverseFastFourierTransform(DzDzTexture);
+        IFFT.InverseFastFourierTransform(DxDzTexture);
+        IFFT.InverseFastFourierTransform(DyDxzTexture);
+        IFFT.InverseFastFourierTransform(DyxDyzTexture);
+        IFFT.InverseFastFourierTransform(DxxDzzTexture);
     }
 
-    private void GetComplexAmplitudesAndDerivativesTextures() {
-        DxTexture = CreateRenderTexture();
-        DyTexture = CreateRenderTexture();
-        DzTexture = CreateRenderTexture();
-        DyDxTexture = CreateRenderTexture();
-        DyDzTexture = CreateRenderTexture();
-        DxDxTexture = CreateRenderTexture();
-        DzDzTexture = CreateRenderTexture();
+    private void GetComplexAmplitudesTextures() {
+        DxDzTexture = CreateRenderTexture();
+        DyDxzTexture = CreateRenderTexture();
+        DyxDyzTexture = CreateRenderTexture();
+        DxxDzzTexture = CreateRenderTexture();
     }
 
     public void InitialCalculations(){
         GetWavesDataTexture();
         GetInitialSpectrumTexture();
-        GetComplexAmplitudesAndDerivativesTextures();
+        GetComplexAmplitudesTextures();
         IFFT = new IFFT(IFFTComputeShader, texturesSize);
     }
 }
