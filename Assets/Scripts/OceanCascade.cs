@@ -20,6 +20,7 @@ public class OceanCascade : MonoBehaviour
     private ComputeShader initialSpectrumComputeShader;
     private ComputeShader TimeDependentSpectrumComputeShader;
     private ComputeShader IFFTComputeShader;
+    private ComputeShader ResultTexturesFillerComputeShader;
     private IFFT IFFT;
     private Texture2D randomNoiseTexture;
     private RenderTexture initialSpectrumTexture;
@@ -29,29 +30,16 @@ public class OceanCascade : MonoBehaviour
     private RenderTexture DyxDyzTexture;
     private RenderTexture DxxDzzTexture;
 
+    public RenderTexture DisplacementsTexture;
+    public RenderTexture DerivativesTexture;
+
     const int LOCAL_WORK_GROUPS_X = 8;
     const int LOCAL_WORK_GROUPS_Y = 8;
 
     int KERNEL_INITIAL_SPECTRUM;
     int KERNEL_CONJUGATED_SPECTRUM;
     int KERNEL_TIME_DEPENDENT_SPECTRUM;
-
-    public void setVariables(int texturesSize, float windSpeed, Vector2 windDirection, float gravity, float fetch, float depth, ComputeShader initialSpectrumComputeShader, ComputeShader TimeDependentSpectrumComputeShader, ComputeShader IFFTComputeShader, Texture2D randomNoiseTexture){
-        this.texturesSize = texturesSize;
-        this.windSpeed = windSpeed;
-        this.windDirection = windDirection;
-        this.gravity = gravity;
-        this.fetch = fetch;
-        this.depth = depth;
-        this.initialSpectrumComputeShader = initialSpectrumComputeShader;
-        this.TimeDependentSpectrumComputeShader = TimeDependentSpectrumComputeShader;
-        this.IFFTComputeShader = IFFTComputeShader;
-        this.randomNoiseTexture = randomNoiseTexture;
-
-        KERNEL_INITIAL_SPECTRUM = initialSpectrumComputeShader.FindKernel("CalculateInitialSpectrumTexture");
-        KERNEL_CONJUGATED_SPECTRUM = initialSpectrumComputeShader.FindKernel("CalculateConjugatedInitialSpectrumTexture");
-        KERNEL_TIME_DEPENDENT_SPECTRUM = TimeDependentSpectrumComputeShader.FindKernel("CalculateTimeDependentComplexAmplitudesAndDerivatives");
-    }
+    int KERNEL_RESULT_TEXTURES_FILLER;
 
     private RenderTexture CreateRenderTexture(){
         RenderTexture rt = new RenderTexture(texturesSize, texturesSize, 0, RenderTextureFormat.RGFloat, RenderTextureReadWrite.sRGB);
@@ -63,6 +51,35 @@ public class OceanCascade : MonoBehaviour
         rt.enableRandomWrite = true;
         rt.Create();
         return rt;
+    }
+
+    public void setVariables(int texturesSize, float windSpeed, Vector2 windDirection, float gravity, float fetch, float depth, ComputeShader initialSpectrumComputeShader, ComputeShader TimeDependentSpectrumComputeShader, ComputeShader IFFTComputeShader, ComputeShader ResultTexturesFillerComputeShader, Texture2D randomNoiseTexture){
+        this.texturesSize = texturesSize;
+        this.windSpeed = windSpeed;
+        this.windDirection = windDirection;
+        this.gravity = gravity;
+        this.fetch = fetch;
+        this.depth = depth;
+        this.initialSpectrumComputeShader = initialSpectrumComputeShader;
+        this.TimeDependentSpectrumComputeShader = TimeDependentSpectrumComputeShader;
+        this.IFFTComputeShader = IFFTComputeShader;
+        this.ResultTexturesFillerComputeShader = ResultTexturesFillerComputeShader;
+        this.randomNoiseTexture = randomNoiseTexture;
+        IFFT = new IFFT(IFFTComputeShader, texturesSize);
+
+        WavesDataTexture = CreateRenderTexture();
+        initialSpectrumTexture = CreateRenderTexture();
+        DxDzTexture = CreateRenderTexture();
+        DyDxzTexture = CreateRenderTexture();
+        DyxDyzTexture = CreateRenderTexture();
+        DxxDzzTexture = CreateRenderTexture();
+        DisplacementsTexture = CreateRenderTexture();
+        DerivativesTexture = CreateRenderTexture();
+
+        KERNEL_INITIAL_SPECTRUM = initialSpectrumComputeShader.FindKernel("CalculateInitialSpectrumTexture");
+        KERNEL_CONJUGATED_SPECTRUM = initialSpectrumComputeShader.FindKernel("CalculateConjugatedInitialSpectrumTexture");
+        KERNEL_TIME_DEPENDENT_SPECTRUM = TimeDependentSpectrumComputeShader.FindKernel("CalculateTimeDependentComplexAmplitudesAndDerivatives");
+        KERNEL_RESULT_TEXTURES_FILLER = ResultTexturesFillerComputeShader.FindKernel("FillResultTextures");
     }
 
     private void CalculateInitialSpectrumTexture(){
@@ -89,16 +106,7 @@ public class OceanCascade : MonoBehaviour
         initialSpectrumComputeShader.Dispatch(KERNEL_CONJUGATED_SPECTRUM, texturesSize/LOCAL_WORK_GROUPS_X, texturesSize/LOCAL_WORK_GROUPS_Y, 1);
     }
 
-    private void GetInitialSpectrumTexture(){
-        initialSpectrumTexture = CreateRenderTexture();
-        CalculateInitialSpectrumTexture();
-    }
-
-    private void GetWavesDataTexture(){
-        WavesDataTexture = CreateRenderTexture();
-    }
-
-    private void CalculateWavesTexturesAtTime(float time) {
+    public void CalculateWavesTexturesAtTime(float time) {
         TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_ConjugatedInitialSpectrumTexture", initialSpectrumTexture);
         TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_WavesDataTexture", WavesDataTexture);
         TimeDependentSpectrumComputeShader.SetFloat("_Time", time);
@@ -112,19 +120,17 @@ public class OceanCascade : MonoBehaviour
         IFFT.InverseFastFourierTransform(DyDxzTexture);
         IFFT.InverseFastFourierTransform(DyxDyzTexture);
         IFFT.InverseFastFourierTransform(DxxDzzTexture);
-    }
 
-    private void GetComplexAmplitudesTextures() {
-        DxDzTexture = CreateRenderTexture();
-        DyDxzTexture = CreateRenderTexture();
-        DyxDyzTexture = CreateRenderTexture();
-        DxxDzzTexture = CreateRenderTexture();
+        ResultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_DxDzTexture", DxDzTexture);
+        ResultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_DyDxzTexture", DyDxzTexture);
+        ResultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_DyxDyzTexture", DyxDyzTexture);
+        ResultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_DxxDzzTexture", DxxDzzTexture);
+        ResultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_DisplacementsTexture", DisplacementsTexture);
+        ResultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_DerivativesTexture", DerivativesTexture);
+        ResultTexturesFillerComputeShader.Dispatch(KERNEL_RESULT_TEXTURES_FILLER, texturesSize/LOCAL_WORK_GROUPS_X, texturesSize/LOCAL_WORK_GROUPS_Y, 1);
     }
 
     public void InitialCalculations(){
-        GetWavesDataTexture();
-        GetInitialSpectrumTexture();
-        GetComplexAmplitudesTextures();
-        IFFT = new IFFT(IFFTComputeShader, texturesSize);
+        CalculateInitialSpectrumTexture();
     }
 }

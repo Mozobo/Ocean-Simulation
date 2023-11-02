@@ -2,7 +2,7 @@
 #pragma kernel FillResultTextures
 
 
-RWTexture2D<float3> _DisplacementTexture;
+RWTexture2D<float3> _DisplacementsTexture;
 RWTexture2D<float4> _DerivativesTexture;
 
 RWTexture2D<float2> _DxDzTexture;
@@ -18,6 +18,6 @@ void FillResultTextures(uint3 id : SV_DispatchThreadID)
     float2 DyxDyz = _DyxDyzTexture[id.xy];
     float2 DxxDzz = _DxxDzzTexture[id.xy];
 
-    _DisplacementTexture[id.xy] = float3(DxDz.x, DyDxz.x, DxDz.y);
+    _DisplacementsTexture[id.xy] = float3(DxDz.x, DyDxz.x, DxDz.y);
     _DerivativesTexture[id.xy] = float4(DyxDyz, DxxDzz);
 }

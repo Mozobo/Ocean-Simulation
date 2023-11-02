@@ -25,11 +25,12 @@ public class Ocean : MonoBehaviour
     public ComputeShader initialSpectrumComputeShader;
     public ComputeShader TimeDependentSpectrumComputeShader;
     public ComputeShader IFFTComputeShader;
+    public ComputeShader ResultTexturesFillerComputeShader;
     private Texture2D randomNoiseTexture;
 
     public OceanCascade oceanCascade0;
-    public OceanCascade oceanCascade1;
-    public OceanCascade oceanCascade2;
+    //public OceanCascade oceanCascade1;
+    //public OceanCascade oceanCascade2;
 
 
     private void GenerateVertices(){
@@ -71,18 +72,6 @@ public class Ocean : MonoBehaviour
         return new Texture2D(texturesSize, texturesSize, TextureFormat.RGFloat, false, true);
     } 
 
-    private RenderTexture CreateRenderTexture(){
-        RenderTexture rt = new RenderTexture(texturesSize, texturesSize, 0, RenderTextureFormat.RGFloat, RenderTextureReadWrite.sRGB);
-        rt.useMipMap = false;
-        rt.autoGenerateMips = false;
-        rt.anisoLevel = 6;
-        rt.filterMode = FilterMode.Trilinear;
-        rt.wrapMode = TextureWrapMode.Repeat;
-        rt.enableRandomWrite = true;
-        rt.Create();
-        return rt;
-    }
-
     // Generates a random number from a Normal Distribution N(0, 1)
     // Extracted from: https://www.alanzucconi.com/2015/09/16/how-to-sample-from-a-gaussian-distribution/
     private float GenerateRandomNumber(){
@@ -116,16 +105,18 @@ public class Ocean : MonoBehaviour
         randomNoiseTexture = noiseTexture;
     }
 
+    private void InitializeCascade(OceanCascade cascade){
+        cascade.setVariables(texturesSize, windSpeed, windDirection, gravity, fetch, depth, initialSpectrumComputeShader, TimeDependentSpectrumComputeShader, IFFTComputeShader, ResultTexturesFillerComputeShader, randomNoiseTexture);
+        cascade.InitialCalculations();
+    }
+
     void Awake(){
         GenerateWaterPlane();
         GenerateRandomNoiseTexture();
-        oceanCascade0.setVariables(texturesSize, windSpeed, windDirection, gravity, fetch, depth, initialSpectrumComputeShader, TimeDependentSpectrumComputeShader, IFFTComputeShader, randomNoiseTexture);
-        oceanCascade1.setVariables(texturesSize, windSpeed, windDirection, gravity, fetch, depth, initialSpectrumComputeShader, TimeDependentSpectrumComputeShader, IFFTComputeShader, randomNoiseTexture);
-        oceanCascade2.setVariables(texturesSize, windSpeed, windDirection, gravity, fetch, depth, initialSpectrumComputeShader, TimeDependentSpectrumComputeShader, IFFTComputeShader, randomNoiseTexture);
-
-        oceanCascade0.InitialCalculations();
-        oceanCascade1.InitialCalculations();
-        oceanCascade2.InitialCalculations();
+        InitializeCascade(oceanCascade0);
+        oceanCascade0.CalculateWavesTexturesAtTime(0.0f);
+        //InitializeCascade(oceanCascade1);
+        //InitializeCascade(oceanCascade2);
     }
 
     // Uncomment this function to visualize vertices
