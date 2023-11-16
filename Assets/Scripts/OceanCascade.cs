@@ -41,8 +41,8 @@ public class OceanCascade : MonoBehaviour
     int KERNEL_TIME_DEPENDENT_SPECTRUM;
     int KERNEL_RESULT_TEXTURES_FILLER;
 
-    private RenderTexture CreateRenderTexture(){
-        RenderTexture rt = new RenderTexture(texturesSize, texturesSize, 0, RenderTextureFormat.RGFloat, RenderTextureReadWrite.sRGB);
+    private RenderTexture CreateRenderTexture(RenderTextureFormat format){
+        RenderTexture rt = new RenderTexture(texturesSize, texturesSize, 0, format, RenderTextureReadWrite.Linear);
         rt.useMipMap = false;
         rt.autoGenerateMips = false;
         rt.anisoLevel = 6;
@@ -51,6 +51,14 @@ public class OceanCascade : MonoBehaviour
         rt.enableRandomWrite = true;
         rt.Create();
         return rt;
+    }
+
+    private RenderTexture CreateRGRenderTexture() {
+        return CreateRenderTexture(RenderTextureFormat.RGFloat);
+    }
+
+    private RenderTexture CreateRGBARenderTexture() {
+        return CreateRenderTexture(RenderTextureFormat.ARGBFloat);
     }
 
     public void setVariables(int texturesSize, float windSpeed, Vector2 windDirection, float gravity, float fetch, float depth, ComputeShader initialSpectrumComputeShader, ComputeShader TimeDependentSpectrumComputeShader, ComputeShader IFFTComputeShader, ComputeShader ResultTexturesFillerComputeShader, Texture2D randomNoiseTexture){
@@ -67,14 +75,16 @@ public class OceanCascade : MonoBehaviour
         this.randomNoiseTexture = randomNoiseTexture;
         IFFT = new IFFT(IFFTComputeShader, texturesSize);
 
-        WavesDataTexture = CreateRenderTexture();
-        initialSpectrumTexture = CreateRenderTexture();
-        DxDzTexture = CreateRenderTexture();
-        DyDxzTexture = CreateRenderTexture();
-        DyxDyzTexture = CreateRenderTexture();
-        DxxDzzTexture = CreateRenderTexture();
-        DisplacementsTexture = CreateRenderTexture();
-        DerivativesTexture = CreateRenderTexture();
+
+
+        WavesDataTexture = CreateRGBARenderTexture();
+        initialSpectrumTexture = CreateRGBARenderTexture();
+        DxDzTexture = CreateRGRenderTexture();
+        DyDxzTexture = CreateRGRenderTexture();
+        DyxDyzTexture = CreateRGRenderTexture();
+        DxxDzzTexture = CreateRGRenderTexture();
+        DisplacementsTexture = CreateRGBARenderTexture();
+        DerivativesTexture = CreateRGBARenderTexture();
 
         KERNEL_INITIAL_SPECTRUM = initialSpectrumComputeShader.FindKernel("CalculateInitialSpectrumTexture");
         KERNEL_CONJUGATED_SPECTRUM = initialSpectrumComputeShader.FindKernel("CalculateConjugatedInitialSpectrumTexture");

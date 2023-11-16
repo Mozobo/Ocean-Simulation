@@ -22,6 +22,8 @@ public class Ocean : MonoBehaviour
     private int[] triangles;
     private Mesh mesh;
 
+    public Material material;
+
     public ComputeShader initialSpectrumComputeShader;
     public ComputeShader TimeDependentSpectrumComputeShader;
     public ComputeShader IFFTComputeShader;
@@ -114,9 +116,16 @@ public class Ocean : MonoBehaviour
         GenerateWaterPlane();
         GenerateRandomNoiseTexture();
         InitializeCascade(oceanCascade0);
-        oceanCascade0.CalculateWavesTexturesAtTime(0.0f);
+        //oceanCascade0.CalculateWavesTexturesAtTime(1.0f);
+        material.SetTexture("_DisplacementsC0Sampler", oceanCascade0.DisplacementsTexture, UnityEngine.Rendering.RenderTextureSubElement.Color);
+        material.SetTexture("_DerivativesC0Sampler", oceanCascade0.DerivativesTexture, UnityEngine.Rendering.RenderTextureSubElement.Color);
+        material.SetFloat("_C0LengthScale", oceanCascade0.lengthScale);
         //InitializeCascade(oceanCascade1);
         //InitializeCascade(oceanCascade2);
+    }
+
+    void Update(){
+        oceanCascade0.CalculateWavesTexturesAtTime(Time.time);
     }
 
     // Uncomment this function to visualize vertices

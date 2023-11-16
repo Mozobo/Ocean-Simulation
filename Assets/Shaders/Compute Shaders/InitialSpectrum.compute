@@ -66,7 +66,7 @@ float NormalisationFactor(float s) {
 // https://www.sciencedirect.com/topics/engineering/directional-spreading
 float DirectionalSpread(float angularFrequency, float peakAngularFrequency, float theta){
     float s = SpreadPower(angularFrequency, peakAngularFrequency);
-    float windTheta = atan2(_WindDirectionX, _WindDirectionY);
+    float windTheta = atan2(_WindDirectionY, _WindDirectionX);
 
     return NormalisationFactor(s) * pow(abs(0.5 * (theta - windTheta)), 2 * s);
 }
@@ -81,7 +81,7 @@ float FrequencyDerivative(float k, float angularFrequency){
 void CalculateInitialSpectrumTexture (uint3 id : SV_DispatchThreadID)
 {
     float deltaK = 2 * PI/_LengthScale;
-    float halfSize = _TextureSize/2;
+    uint halfSize = _TextureSize/2;
     int nx = id.x - halfSize;
     int nz = id.y - halfSize;
     float2 kVector = float2(nx, nz) * deltaK;
@@ -99,7 +99,7 @@ void CalculateInitialSpectrumTexture (uint3 id : SV_DispatchThreadID)
         // float4(direction on the x axis, 1/k for the FFT, direction on the z axis, wave frequency);
         _WavesDataTexture[id.xy] = float4(kVector.x, 1/k, kVector.y, angularFrequency);
     } else {
-        _InitialSpectrumTexture[id.xy] = 0.0f;
+        _InitialSpectrumTexture[id.xy] = 0;
         _WavesDataTexture[id.xy] = float4(kVector.x, 1, kVector.y, 0);
     }
 }

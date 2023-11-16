@@ -2,7 +2,6 @@
 #pragma kernel PrecomputeTwiddleFactorsAndInputIndices
 #pragma kernel HorizontalStepIFFT
 #pragma kernel VerticalStepIFFT
-#pragma kernel Scale
 #pragma kernel Permute
 
 // Create a RenderTexture with enableRandomWrite flag and set it
@@ -20,7 +19,7 @@ uint _Step;
 
 
 float2 ComplexMult(float2 a, float2 b){
-	return float2(a.r * b.r - a.g * b.g, a.r * b.g + a.g * b.r);
+	return float2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x);
 }
 
 float2 ComplexExp(float2 a){
@@ -46,26 +45,20 @@ void PrecomputeTwiddleFactorsAndInputIndices(uint3 id : SV_DispatchThreadID) {
 void HorizontalStepIFFT(uint3 id : SV_DispatchThreadID){
 	float4 data = _TwiddleFactorsAndInputIndicesTexture[uint2(_Step, id.x)];
 	uint2 inputsIndices = (uint2)data.ba;
-	if (!_PingPong) _InputTexture[id.xy] = _PingPongTexture[uint2(inputsIndices.x, id.y)] + ComplexMult(float2(data.r, -data.g), _PingPongTexture[uint2(inputsIndices.y, id.y)]);
-	else _PingPongTexture[id.xy] = _InputTexture[uint2(inputsIndices.x, id.y)] + ComplexMult(float2(data.r, -data.g), _InputTexture[uint2(inputsIndices.y, id.y)]);
+	if (!_PingPong) _PingPongTexture[id.xy] = _InputTexture[uint2(inputsIndices.x, id.y)] + ComplexMult(float2(data.r, -data.g), _InputTexture[uint2(inputsIndices.y, id.y)]);
+	else _InputTexture[id.xy] = _PingPongTexture[uint2(inputsIndices.x, id.y)] + ComplexMult(float2(data.r, -data.g), _PingPongTexture[uint2(inputsIndices.y, id.y)]);
 }
 
 [numthreads(8, 8, 1)]
 void VerticalStepIFFT(uint3 id : SV_DispatchThreadID){
 	float4 data = _TwiddleFactorsAndInputIndicesTexture[uint2(_Step, id.y)];
 	uint2 inputsIndices = (uint2)data.ba;
-	if (!_PingPong) _InputTexture[id.xy] = _PingPongTexture[uint2(id.x, inputsIndices.x)] + ComplexMult(float2(data.r, -data.g), _PingPongTexture[uint2(id.x, inputsIndices.y)]);
-	else _PingPongTexture[id.xy] = _InputTexture[uint2(id.x, inputsIndices.x)] + ComplexMult(float2(data.r, -data.g), _InputTexture[uint2(id.x, inputsIndices.y)]);
+	if (!_PingPong) _PingPongTexture[id.xy] = _InputTexture[uint2(id.x, inputsIndices.x)] + ComplexMult(float2(data.r, -data.g), _InputTexture[uint2(id.x, inputsIndices.y)]);
+	else _InputTexture[id.xy] = _PingPongTexture[uint2(id.x, inputsIndices.x)] + ComplexMult(float2(data.r, -data.g), _PingPongTexture[uint2(id.x, inputsIndices.y)]);
 }
 
-// Divides the values in the pixel by N * N
-[numthreads(8, 8, 1)]
-void Scale(uint3 id : SV_DispatchThreadID){
-	_InputTexture[id.xy] = _InputTexture[id.xy] / _TextureSize / _TextureSize;
-}
-
-// The values of every pixel get raise to 1 or -1 depending of their position in the texture
+// The values of every pixel get multiplied by 1 or -1 depending on their position in the texture
 [numthreads(8, 8, 1)]
 void Permute(uint3 id : SV_DispatchThreadID){
-	_InputTexture[id.xy] = _InputTexture[id.xy] * (1.0 - 2.0 * ((id.x + id.y) % 2));
+	_InputTexture[id.xy] = _InputTexture[id.xy] * 1.0 - 2.0 * ((id.x + id.y) % 2);
 }
