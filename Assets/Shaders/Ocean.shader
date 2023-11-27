@@ -10,7 +10,7 @@ Shader "Custom/Ocean"
         _Metallic ("Metallic", Range(0,1)) = 0.0
 
         [Header(Cascade 0)]
-        _DisplacementsC0Sampler("Displacements C0", 2D) = "grey" {}
+        _DisplacementsC0Sampler("Displacements C0", 2D) = "black" {}
         [HideInInspector]_DerivativesC0Sampler("Derivatives C0", 2D) = "black" {}
     }
     SubShader

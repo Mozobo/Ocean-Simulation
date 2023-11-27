@@ -22,10 +22,25 @@ float _CutoffHigh;
 float _CutoffLow;
 float _Depth;
 
+
+
+
 // Returns wave angular frequency
 // For more info: https://en.wikipedia.org/wiki/Dispersion_(water_waves)
 float AngularFrequency(float k){
     return sqrt(_Gravity * k * tanh(min(k * _Depth, 20)));
+}
+
+/*
+// https://erdc-library.erdc.dren.mil/jspui/handle/11681/12522
+float TMACorrelation(float angularFrequency){
+    float angularFrequencyH = angularFrequency * sqrt(_Depth / _Gravity);
+    if (angularFrequencyH <= 1) return 0.5 * angularFrequencyH * angularFrequencyH;
+    if (angularFrequencyH < 2) {
+        float aux = 2 - angularFrequencyH;
+        return 1 - 0.5 * aux * aux;
+    }
+    return 1;
 }
 
 // Returns water spectrum based on the JONSWAP Spectrum
@@ -41,7 +56,7 @@ float JONSWAP(float angularFrequency, float peakAngularFrequency){
     float oneOverFrequency = 1 / angularFrequency;
     float peakFrequencyOverFrequency = peakAngularFrequency / angularFrequency;
 
-    return alpha * _Gravity * _Gravity * oneOverFrequency * oneOverFrequency * oneOverFrequency * oneOverFrequency * oneOverFrequency * exp(-1.25 * peakFrequencyOverFrequency * peakFrequencyOverFrequency * peakFrequencyOverFrequency * peakFrequencyOverFrequency) * pow(abs(gamma), r);
+    return TMACorrelation(angularFrequency) * alpha * _Gravity * _Gravity * oneOverFrequency * oneOverFrequency * oneOverFrequency * oneOverFrequency * oneOverFrequency * exp(-1.25 * peakFrequencyOverFrequency * peakFrequencyOverFrequency * peakFrequencyOverFrequency * peakFrequencyOverFrequency) * pow(abs(gamma), r);
 }
 
 // Returns s
@@ -66,15 +81,32 @@ float NormalisationFactor(float s) {
 // https://www.sciencedirect.com/topics/engineering/directional-spreading
 float DirectionalSpread(float angularFrequency, float peakAngularFrequency, float theta){
     float s = SpreadPower(angularFrequency, peakAngularFrequency);
-    float windTheta = atan2(_WindDirectionY, _WindDirectionX);
+    float2 normalizedWindDirection = normalize(float2(_WindDirectionX, _WindDirectionY));
+    float windTheta = atan2(normalizedWindDirection.y, normalizedWindDirection.x);
 
-    return NormalisationFactor(s) * pow(abs(0.5 * (theta - windTheta)), 2 * s);
+    return NormalisationFactor(s) * pow(abs(cos(0.5 * (theta - windTheta))), 2 * s);
 }
 
 float FrequencyDerivative(float k, float angularFrequency){
     float th = tanh(min(k * _Depth, 20));
     float ch = cosh(k * _Depth);
     return _Gravity * (_Depth * k / ch / ch + th) / (angularFrequency * 2);
+}
+
+*/
+
+float Phillips (float k, float2 kAngle) {
+    float A = 0.0000005;
+    float L = _WindSpeed * _WindSpeed / _Gravity;
+    float kL = k * L;
+    float cosineFactor = pow(abs(kAngle.x * _WindDirectionX + kAngle.y * _WindDirectionY), 1.5);
+
+    return A * exp(-1 / (kL * kL)) / (k * k * k * k) * cosineFactor;
+}
+
+float factor (float k) {
+    float l = 0.5;
+    return exp(-l * l * k * k);
 }
 
 [numthreads(8,8,1)]
@@ -92,9 +124,10 @@ void CalculateInitialSpectrumTexture (uint3 id : SV_DispatchThreadID)
         float kAngle = atan2(kVector.y, kVector.x);
         float angularFrequency = AngularFrequency(k);
         // The peak frequency is calculated here because we also need it for the directional spread
-        float peakAngularFrequency = 22 * pow(abs(_Gravity * _Gravity/(_WindSpeed * _Fetch)), 0.3333f);
+        //float peakAngularFrequency = 22 * pow(abs(_Gravity * _Gravity/(_WindSpeed * _Fetch)), 0.3333f);
 
-        _InitialSpectrumTexture[id.xy] = float4(float2(_RandomNoise[id.xy].x, _RandomNoise[id.xy]. y) * sqrt(2 * JONSWAP(angularFrequency, peakAngularFrequency) * DirectionalSpread(angularFrequency, peakAngularFrequency, kAngle) * abs(FrequencyDerivative(k, angularFrequency)) / k * deltaK * deltaK), 0.0f, 0.0f);
+        //_InitialSpectrumTexture[id.xy] = float4(float2(_RandomNoise[id.xy].x, _RandomNoise[id.xy].y) * sqrt(2 * JONSWAP(angularFrequency, peakAngularFrequency) * DirectionalSpread(angularFrequency, peakAngularFrequency, kAngle) * abs(FrequencyDerivative(k, angularFrequency)) / k * deltaK * deltaK), 0.0f, 0.0f);
+        _InitialSpectrumTexture[id.xy] = float4(float2(_RandomNoise[id.xy].x, _RandomNoise[id.xy].y) * sqrt(Phillips(k, kAngle) * factor(k)), 0.0f, 0.0f);
         // WavesData Texture contains information of the wave on each pixel
         // float4(direction on the x axis, 1/k for the FFT, direction on the z axis, wave frequency);
         _WavesDataTexture[id.xy] = float4(kVector.x, 1/k, kVector.y, angularFrequency);

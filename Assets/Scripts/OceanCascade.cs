@@ -41,9 +41,9 @@ public class OceanCascade : MonoBehaviour
     int KERNEL_TIME_DEPENDENT_SPECTRUM;
     int KERNEL_RESULT_TEXTURES_FILLER;
 
-    private RenderTexture CreateRenderTexture(RenderTextureFormat format){
+    private RenderTexture CreateRenderTexture(RenderTextureFormat format, bool useMips){
         RenderTexture rt = new RenderTexture(texturesSize, texturesSize, 0, format, RenderTextureReadWrite.Linear);
-        rt.useMipMap = false;
+        rt.useMipMap = useMips;
         rt.autoGenerateMips = false;
         rt.anisoLevel = 6;
         rt.filterMode = FilterMode.Trilinear;
@@ -53,12 +53,12 @@ public class OceanCascade : MonoBehaviour
         return rt;
     }
 
-    private RenderTexture CreateRGRenderTexture() {
-        return CreateRenderTexture(RenderTextureFormat.RGFloat);
+    private RenderTexture CreateRGRenderTexture(bool useMips = false) {
+        return CreateRenderTexture(RenderTextureFormat.RGFloat, useMips);
     }
 
-    private RenderTexture CreateRGBARenderTexture() {
-        return CreateRenderTexture(RenderTextureFormat.ARGBFloat);
+    private RenderTexture CreateRGBARenderTexture(bool useMips = false) {
+        return CreateRenderTexture(RenderTextureFormat.ARGBFloat, useMips);
     }
 
     public void setVariables(int texturesSize, float windSpeed, Vector2 windDirection, float gravity, float fetch, float depth, ComputeShader initialSpectrumComputeShader, ComputeShader TimeDependentSpectrumComputeShader, ComputeShader IFFTComputeShader, ComputeShader ResultTexturesFillerComputeShader, Texture2D randomNoiseTexture){
@@ -84,7 +84,7 @@ public class OceanCascade : MonoBehaviour
         DyxDyzTexture = CreateRGRenderTexture();
         DxxDzzTexture = CreateRGRenderTexture();
         DisplacementsTexture = CreateRGBARenderTexture();
-        DerivativesTexture = CreateRGBARenderTexture();
+        DerivativesTexture = CreateRGBARenderTexture(true);
 
         KERNEL_INITIAL_SPECTRUM = initialSpectrumComputeShader.FindKernel("CalculateInitialSpectrumTexture");
         KERNEL_CONJUGATED_SPECTRUM = initialSpectrumComputeShader.FindKernel("CalculateConjugatedInitialSpectrumTexture");

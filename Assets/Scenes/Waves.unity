@@ -240,12 +240,6 @@ MonoBehaviour:
   cutoffLow: 0
   lengthScale: 10
   initialSpectrumTexture: {fileID: 0}
-  WavesDataTexture: {fileID: 0}
-  DxDzTexture: {fileID: 0}
-  DyDxzTexture: {fileID: 0}
-  DyxDyzTexture: {fileID: 0}
-  DxxDzzTexture: {fileID: 0}
-  PingPongTexture: {fileID: 0}
   DisplacementsTexture: {fileID: 0}
   DerivativesTexture: {fileID: 0}
 --- !u!4 &153976618
@@ -390,12 +384,6 @@ MonoBehaviour:
   cutoffLow: 0
   lengthScale: 10
   initialSpectrumTexture: {fileID: 0}
-  WavesDataTexture: {fileID: 0}
-  DxDzTexture: {fileID: 0}
-  DyDxzTexture: {fileID: 0}
-  DyxDyzTexture: {fileID: 0}
-  DxxDzzTexture: {fileID: 0}
-  PingPongTexture: {fileID: 0}
   DisplacementsTexture: {fileID: 0}
   DerivativesTexture: {fileID: 0}
 --- !u!4 &1106218545
@@ -608,11 +596,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   size: 100
   texturesSize: 256
-  windSpeed: 26.26
+  windSpeed: 20
   windDirection: {x: 1, y: 1}
   gravity: 9.81
   fetch: 100
-  depth: 100
+  depth: 1000
   material: {fileID: 2100000, guid: b05126d617d6f3a4db1739c1e52c59d7, type: 2}
   initialSpectrumComputeShader: {fileID: 7200000, guid: 144b0692df3a18a428518879543d9214, type: 3}
   TimeDependentSpectrumComputeShader: {fileID: 7200000, guid: 84d67561ad62d72469e299e5019e0a39, type: 3}
@@ -648,16 +636,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: aaa16e57b82d98342b4a2e06046f52be, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  cutoffHigh: 5
-  cutoffLow: 0
-  lengthScale: 70
+  cutoffHigh: 100
+  cutoffLow: 0.001
+  lengthScale: 100
   initialSpectrumTexture: {fileID: 0}
-  WavesDataTexture: {fileID: 0}
-  DxDzTexture: {fileID: 0}
-  DyDxzTexture: {fileID: 0}
-  DyxDyzTexture: {fileID: 0}
-  DxxDzzTexture: {fileID: 0}
-  PingPongTexture: {fileID: 0}
   DisplacementsTexture: {fileID: 8400000, guid: 215f5a5d9e6ab2d4fbafb35b4bc5b66b, type: 2}
   DerivativesTexture: {fileID: 8400000, guid: 7bbe0b341c6a390498cb3c1378daa2e5, type: 2}
 --- !u!4 &1337616534
