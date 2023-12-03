@@ -99,7 +99,7 @@ float Phillips (float k, float2 kAngle) {
     float A = 0.0000005;
     float L = _WindSpeed * _WindSpeed / _Gravity;
     float kL = k * L;
-    float cosineFactor = pow(abs(kAngle.x * _WindDirectionX + kAngle.y * _WindDirectionY), 1.5);
+    float cosineFactor = pow(abs(kAngle.x * _WindDirectionX + kAngle.y * _WindDirectionY), 1.75);
 
     return A * exp(-1 / (kL * kL)) / (k * k * k * k) * cosineFactor;
 }

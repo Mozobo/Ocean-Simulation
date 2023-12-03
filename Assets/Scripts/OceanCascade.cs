@@ -32,6 +32,7 @@ public class OceanCascade : MonoBehaviour
 
     public RenderTexture DisplacementsTexture;
     public RenderTexture DerivativesTexture;
+    public RenderTexture TurbulenceTexture;
 
     const int LOCAL_WORK_GROUPS_X = 8;
     const int LOCAL_WORK_GROUPS_Y = 8;
@@ -85,6 +86,7 @@ public class OceanCascade : MonoBehaviour
         DxxDzzTexture = CreateRGRenderTexture();
         DisplacementsTexture = CreateRGBARenderTexture();
         DerivativesTexture = CreateRGBARenderTexture(true);
+        TurbulenceTexture = CreateRGBARenderTexture(true);
 
         KERNEL_INITIAL_SPECTRUM = initialSpectrumComputeShader.FindKernel("CalculateInitialSpectrumTexture");
         KERNEL_CONJUGATED_SPECTRUM = initialSpectrumComputeShader.FindKernel("CalculateConjugatedInitialSpectrumTexture");
@@ -137,6 +139,7 @@ public class OceanCascade : MonoBehaviour
         ResultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_DxxDzzTexture", DxxDzzTexture);
         ResultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_DisplacementsTexture", DisplacementsTexture);
         ResultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_DerivativesTexture", DerivativesTexture);
+        ResultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_TurbulenceTexture", TurbulenceTexture);
         ResultTexturesFillerComputeShader.Dispatch(KERNEL_RESULT_TEXTURES_FILLER, texturesSize/LOCAL_WORK_GROUPS_X, texturesSize/LOCAL_WORK_GROUPS_Y, 1);
     }
 

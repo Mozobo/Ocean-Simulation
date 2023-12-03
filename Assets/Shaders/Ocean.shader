@@ -9,9 +9,12 @@ Shader "Custom/Ocean"
         _Glossiness ("Smoothness", Range(0,1)) = 0.5
         _Metallic ("Metallic", Range(0,1)) = 0.0
 
+        _FoamColor ("Foam Color", Color) = (0, 0, 0, 0)
+
         [Header(Cascade 0)]
         _DisplacementsC0Sampler("Displacements C0", 2D) = "black" {}
         [HideInInspector]_DerivativesC0Sampler("Derivatives C0", 2D) = "black" {}
+        [HideInInspector]_TurbulenceC0Sampler("Turbulence C0", 2D) = "white" {}
     }
     SubShader
     {
@@ -37,9 +40,11 @@ Shader "Custom/Ocean"
         half _Glossiness;
         half _Metallic;
         fixed4 _Color;
+        fixed4 _FoamColor;
 
         sampler2D _DisplacementsC0Sampler;
         sampler2D _DerivativesC0Sampler;
+        sampler2D _TurbulenceC0Sampler;
         float _C0LengthScale;
 
 
@@ -71,9 +76,12 @@ Shader "Custom/Ocean"
             float3 worldNormal = normalize(float3(-slope.x, 1, -slope.y));
             o.Normal = WorldToTangentNormalVector(IN, worldNormal);
 
+            float jacobian = tex2D(_TurbulenceC0Sampler, IN.worldUV / _C0LengthScale).x;
+            o.Albedo = lerp(0, _FoamColor, jacobian);
+
             // Albedo comes from a texture tinted by color
             fixed4 c = tex2D (_MainTex, IN.uv_MainTex) * _Color;
-            o.Albedo = c.rgb;
+
             // Metallic and smoothness come from slider variables
             o.Metallic = _Metallic;
             o.Smoothness = _Glossiness;

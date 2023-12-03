@@ -119,6 +119,7 @@ public class Ocean : MonoBehaviour
         //oceanCascade0.CalculateWavesTexturesAtTime(1.0f);
         material.SetTexture("_DisplacementsC0Sampler", oceanCascade0.DisplacementsTexture, UnityEngine.Rendering.RenderTextureSubElement.Color);
         material.SetTexture("_DerivativesC0Sampler", oceanCascade0.DerivativesTexture, UnityEngine.Rendering.RenderTextureSubElement.Color);
+        material.SetTexture("_TurbulenceC0Sampler", oceanCascade0.TurbulenceTexture, UnityEngine.Rendering.RenderTextureSubElement.Color);
         material.SetFloat("_C0LengthScale", oceanCascade0.lengthScale);
         //InitializeCascade(oceanCascade1);
         //InitializeCascade(oceanCascade2);
