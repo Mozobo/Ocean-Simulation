@@ -1,5 +1,10 @@
+// References:
 // https://unitywatershader.wordpress.com/
 // https://catlikecoding.com/unity/tutorials/flow/looking-through-water/
+// https://catlikecoding.com/unity/tutorials/rendering/part-8/
+// https://github.com/usunyu/my-awesome-projects/blob/main/Shader/Unity%20HLSL%20Shader/Assets/Hawaii%20Environment/Water/Tasharen%20Water.shader
+// https://github.com/leonjovanovic/water-shader-unity/blob/main/Assets/Shaders/WavesDistortion.shader
+// https://en.wikibooks.org/wiki/Cg_Programming/Unity/Specular_Highlights
 
 
 // Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
@@ -8,15 +13,19 @@ Shader "Custom/Ocean"
 {
     Properties
     {
+        [Header(General parameters)]
         _Color ("Color", Color) = (1,1,1,1)
         _MainTex ("Albedo (RGB)", 2D) = "white" {}
-        _WaterFogColor ("Water Fog Color", Color) = (0, 0, 0, 0)
-		_WaterFogDensity ("Water Fog Density", Range(0, 2)) = 0.1
-        _RefractionStrength ("Refraction Strength", Range(0, 1)) = 0.25
         _Glossiness ("Smoothness", Range(0,1)) = 0.5
         _Metallic ("Metallic", Range(0,1)) = 0.0
+        _Shininess ("Shininess", Float) = 10
 
         _FoamColor ("Foam Color", Color) = (0, 0, 0, 0)
+
+        [Header(Refraction parameters)]
+        _RefractionStrength ("Refraction Strength", Range(0, 1)) = 0.25
+        _WaterFogColor ("Water Fog Color", Color) = (0, 0, 0, 0)
+		_WaterFogDensity ("Water Fog Density", Range(0, 2)) = 0.1
 
         [Header(Cascade 0)]
         _DisplacementsC0Sampler("Displacements C0", 2D) = "black" {}
@@ -25,14 +34,16 @@ Shader "Custom/Ocean"
     }
     SubShader
     {
-        Tags { "Queue"="Transparent" "RenderType"="Transparent" }
+
+        Tags { "Queue"="Transparent" "RenderType"="Transparent"}
         LOD 200
 
         GrabPass { "_WaterBackground" }
 
         CGPROGRAM
         // Physically based Standard lighting model
-        #pragma surface surf Standard alpha vertex:vert finalcolor:ResetAlpha
+        //#pragma surface surf Standard alpha vertex:vert finalcolor:ResetAlpha
+        #pragma surface surf Standard vertex:vert
 
         // Use shader model 3.0 target, to get nicer looking lighting
         #pragma target 3.0
@@ -45,8 +56,11 @@ Shader "Custom/Ocean"
         {
             float2 uv_MainTex;
             float4 screenPos;
+            float3 viewDir;
+            float3 worldPos;
             float2 worldUV;
-            float3 worldNormal; INTERNAL_DATA
+            float3 worldNormal; 
+            INTERNAL_DATA
         };
 
         // Variables with value provided by us (Through code or through Unity's interface)
@@ -54,6 +68,7 @@ Shader "Custom/Ocean"
 
         half _Glossiness;
         half _Metallic;
+        float _Shininess;
         float3 _WaterFogColor;
         float _WaterFogDensity;
         float _RefractionStrength;
@@ -65,7 +80,8 @@ Shader "Custom/Ocean"
         sampler2D _TurbulenceC0Sampler;
         float _C0LengthScale;
 
-        float3 ColorBelowWater (float4 screenPos, float3 tangentSpaceNormal) {
+        /*
+        float3 Refraction (float4 screenPos, float3 tangentSpaceNormal) {
             float2 uvOffset = tangentSpaceNormal.xy * _RefractionStrength;
             uvOffset.y *= _CameraDepthTexture_TexelSize.z * abs(_CameraDepthTexture_TexelSize.y);
 	        float2 uv = (screenPos.xy + uvOffset) / screenPos.w;
@@ -95,6 +111,51 @@ Shader "Custom/Ocean"
             float fogFactor = exp2(-_WaterFogDensity * depthDifference);
 	        return lerp(_WaterFogColor, backgroundColor, fogFactor);
         }
+        */
+
+        float4 Reflections (Input IN, float3 surfaceNormal) {
+            // Reflections
+            float3 reflectionDir = reflect(-IN.viewDir, surfaceNormal);
+            float4 skyData = UNITY_SAMPLE_TEXCUBE(unity_SpecCube0, reflectionDir);
+            half3 skyColor = DecodeHDR (skyData, unity_SpecCube0_HDR);
+            half reflectionFactor = dot(IN.viewDir, surfaceNormal);
+
+            float attenuation;
+            float3 lightDirection;
+ 
+            if (0.0 == _WorldSpaceLightPos0.w) // directional light?
+            {
+               attenuation = 1.0; // no attenuation
+               lightDirection = normalize(_WorldSpaceLightPos0.xyz);
+            } 
+            else // point or spot light
+            {
+               float3 vertexToLightSource = _WorldSpaceLightPos0.xyz - IN.worldPos.xyz;
+               float distance = length(vertexToLightSource);
+               attenuation = 1.0 / distance; // linear attenuation 
+               lightDirection = normalize(vertexToLightSource);
+            }
+
+            float lightAngle = dot(surfaceNormal, lightDirection);
+            //float3 ambientLighting = UNITY_LIGHTMODEL_AMBIENT.rgb * _Color.rgb;
+            float3 ambientLighting = UNITY_LIGHTMODEL_AMBIENT.rgb * skyColor;
+            
+            float3 diffuseReflection = attenuation * _LightColor0.rgb * _Color.rgb * max(0.0, lightAngle);
+
+            float3 specularReflection;
+            if (lightAngle < 0.0) 
+               // light source on the wrong side?
+            {
+               specularReflection = float3(0.0, 0.0, 0.0); 
+                  // no specular reflection
+            }
+            else // light source on the right side
+            {
+               specularReflection = attenuation * _LightColor0.rgb * pow(max(0.0, dot(reflect(-lightDirection, surfaceNormal), IN.viewDir)), _Shininess);
+            }
+
+            return float4(ambientLighting + diffuseReflection + specularReflection, 1.0);
+        }
 
         void ResetAlpha (Input IN, SurfaceOutputStandard o, inout fixed4 color) {
 			color.a = 1;
@@ -121,8 +182,6 @@ Shader "Custom/Ocean"
 
         void surf (Input IN, inout SurfaceOutputStandard o)
         {
-            fixed4 c = _Color;
-
             float4 derivatives = 0;
             derivatives += tex2D(_DerivativesC0Sampler, IN.worldUV / _C0LengthScale);
 
@@ -130,9 +189,8 @@ Shader "Custom/Ocean"
             float3 worldNormal = normalize(float3(-slope.x, 1, -slope.y));
             o.Normal = WorldToTangentNormalVector(IN, worldNormal);
 
-            o.Alpha = c.a;
-
-           	o.Emission = ColorBelowWater(IN.screenPos, o.Normal);
+            o.Emission = Reflections(IN, o.Normal);
+            //o.Emission = Refraction(IN.screenPos, o.Normal);
         }
         ENDCG
     }
