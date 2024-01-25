@@ -5,6 +5,8 @@
 // https://github.com/usunyu/my-awesome-projects/blob/main/Shader/Unity%20HLSL%20Shader/Assets/Hawaii%20Environment/Water/Tasharen%20Water.shader
 // https://github.com/leonjovanovic/water-shader-unity/blob/main/Assets/Shaders/WavesDistortion.shader
 // https://en.wikibooks.org/wiki/Cg_Programming/Unity/Specular_Highlights
+// https://www.alanzucconi.com/2017/08/30/fast-subsurface-scattering-1/
+// https://abyssal.eu/a-look-through-the-waters-surface/
 
 
 // Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
@@ -22,10 +24,13 @@ Shader "Custom/Ocean"
 
         _FoamColor ("Foam Color", Color) = (0, 0, 0, 0)
 
+        [Header(Reflection parameters)]
+        _SubsurfaceScatteringIntensity ("Subsurface Scattering Strength", Range(0, 1)) = 0.25
+
         [Header(Refraction parameters)]
         _RefractionStrength ("Refraction Strength", Range(0, 1)) = 0.25
         _WaterFogColor ("Water Fog Color", Color) = (0, 0, 0, 0)
-		_WaterFogDensity ("Water Fog Density", Range(0, 2)) = 0.1
+		_WaterFogDensity ("Water Fog Density", Range(0, 1)) = 0.1
 
         [Header(Cascade 0)]
         _DisplacementsC0Sampler("Displacements C0", 2D) = "black" {}
@@ -72,6 +77,7 @@ Shader "Custom/Ocean"
         float3 _WaterFogColor;
         float _WaterFogDensity;
         float _RefractionStrength;
+        float _SubsurfaceScatteringIntensity;
         fixed4 _Color;
         fixed4 _FoamColor;
 
@@ -119,6 +125,7 @@ Shader "Custom/Ocean"
             float4 skyData = UNITY_SAMPLE_TEXCUBE(unity_SpecCube0, reflectionDir);
             half3 skyColor = DecodeHDR (skyData, unity_SpecCube0_HDR);
             half reflectionFactor = dot(IN.viewDir, surfaceNormal);
+            float3 environmentReflections = skyColor * (1 - reflectionFactor);
 
             float attenuation;
             float3 lightDirection;
@@ -137,10 +144,11 @@ Shader "Custom/Ocean"
             }
 
             float lightAngle = dot(surfaceNormal, lightDirection);
-            //float3 ambientLighting = UNITY_LIGHTMODEL_AMBIENT.rgb * _Color.rgb;
-            float3 ambientLighting = UNITY_LIGHTMODEL_AMBIENT.rgb * skyColor;
+            float3 ambientLighting = UNITY_LIGHTMODEL_AMBIENT.rgb * _Color;
             
-            float3 diffuseReflection = attenuation * _LightColor0.rgb * _Color.rgb * max(0.0, lightAngle);
+            float3 H = normalize(-surfaceNormal + _WorldSpaceLightPos0);
+            float ViewDotH = pow(saturate(dot(normalize(IN.viewDir), -H)), 5) * _SubsurfaceScatteringIntensity * (1 - _WaterFogDensity);
+            float3 subsurfaceScattering = attenuation * (_LightColor0 * _WaterFogColor) * ViewDotH;
 
             float3 specularReflection;
             if (lightAngle < 0.0) 
@@ -154,7 +162,7 @@ Shader "Custom/Ocean"
                specularReflection = attenuation * _LightColor0.rgb * pow(max(0.0, dot(reflect(-lightDirection, surfaceNormal), IN.viewDir)), _Shininess);
             }
 
-            return float4(ambientLighting + diffuseReflection + specularReflection, 1.0);
+            return float4(ambientLighting + subsurfaceScattering + specularReflection + environmentReflections, 1.0);
         }
 
         void ResetAlpha (Input IN, SurfaceOutputStandard o, inout fixed4 color) {
