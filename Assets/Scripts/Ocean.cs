@@ -2,11 +2,12 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
+using UnityEngine.Rendering;
 
 [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
 public class Ocean : MonoBehaviour
 {
-    [SerializeField, Range(1, 1000)]
+    [SerializeField, Range(1, 10000)]
     public int size = 2;
     public int texturesSize = 256;
 
@@ -64,7 +65,9 @@ public class Ocean : MonoBehaviour
 
     private void GenerateWaterPlane(){
         GetComponent<MeshFilter>().mesh = mesh = new Mesh();
-		mesh.name = "Procedural Grid";
+		mesh.name = "Procedural Water plane";
+        // This is important so we can generate a plane bigger than 250 x 250
+        mesh.indexFormat = IndexFormat.UInt32;
 
         GenerateVertices();
         GenerateTriangles();
@@ -116,7 +119,6 @@ public class Ocean : MonoBehaviour
         GenerateWaterPlane();
         GenerateRandomNoiseTexture();
         InitializeCascade(oceanCascade0);
-        //oceanCascade0.CalculateWavesTexturesAtTime(1.0f);
         material.SetTexture("_DisplacementsC0Sampler", oceanCascade0.DisplacementsTexture, UnityEngine.Rendering.RenderTextureSubElement.Color);
         material.SetTexture("_DerivativesC0Sampler", oceanCascade0.DerivativesTexture, UnityEngine.Rendering.RenderTextureSubElement.Color);
         material.SetTexture("_TurbulenceC0Sampler", oceanCascade0.TurbulenceTexture, UnityEngine.Rendering.RenderTextureSubElement.Color);
