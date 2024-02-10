@@ -7,6 +7,7 @@
 // https://en.wikibooks.org/wiki/Cg_Programming/Unity/Specular_Highlights
 // https://www.alanzucconi.com/2017/08/30/fast-subsurface-scattering-1/
 // https://abyssal.eu/a-look-through-the-waters-surface/
+// https://docs.unity3d.com/Manual/SL-SurfaceShaders.html
 
 
 // Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
@@ -18,18 +19,16 @@ Shader "Custom/Ocean"
         [Header(General parameters)]
         _Color ("Color", Color) = (1,1,1,1)
         _MainTex ("Albedo (RGB)", 2D) = "white" {}
-        _Glossiness ("Smoothness", Range(0,1)) = 0.5
+        _Glossiness ("Glossiness", Range(0,1)) = 0
         _Metallic ("Metallic", Range(0,1)) = 0.0
         _Shininess ("Shininess", Float) = 10
 
-        _FoamColor ("Foam Color", Color) = (0, 0, 0, 0)
-
         [Header(Reflection parameters)]
+        _ReflectionStrength ("Reflection Strength", Range(0, 1)) = 1
         _SubsurfaceScatteringIntensity ("Subsurface Scattering Strength", Range(0, 1)) = 0.25
 
         [Header(Refraction parameters)]
-        _RefractionStrength ("Refraction Strength", Range(0, 1)) = 0.25
-        _WaterFogColor ("Water Fog Color", Color) = (0, 0, 0, 0)
+        _RefractionStrength ("Refraction Strength", Range(0, 1)) = 0.5
 		_WaterFogDensity ("Water Fog Density", Range(0, 1)) = 0.1
 
         [Header(Cascade 0)]
@@ -47,8 +46,7 @@ Shader "Custom/Ocean"
 
         CGPROGRAM
         // Physically based Standard lighting model
-        //#pragma surface surf Standard alpha vertex:vert finalcolor:ResetAlpha
-        #pragma surface surf Standard vertex:vert
+        #pragma surface surf Standard alpha vertex:vert finalcolor:ResetAlpha
 
         // Use shader model 3.0 target, to get nicer looking lighting
         #pragma target 3.0
@@ -74,9 +72,9 @@ Shader "Custom/Ocean"
         half _Glossiness;
         half _Metallic;
         float _Shininess;
-        float3 _WaterFogColor;
         float _WaterFogDensity;
         float _RefractionStrength;
+        float _ReflectionStrength;
         float _SubsurfaceScatteringIntensity;
         fixed4 _Color;
         fixed4 _FoamColor;
@@ -86,7 +84,6 @@ Shader "Custom/Ocean"
         sampler2D _TurbulenceC0Sampler;
         float _C0LengthScale;
 
-        /*
         float3 Refraction (float4 screenPos, float3 tangentSpaceNormal) {
             float2 uvOffset = tangentSpaceNormal.xy * _RefractionStrength;
             uvOffset.y *= _CameraDepthTexture_TexelSize.z * abs(_CameraDepthTexture_TexelSize.y);
@@ -115,9 +112,8 @@ Shader "Custom/Ocean"
             
             float3 backgroundColor = tex2D(_WaterBackground, uv).rgb;
             float fogFactor = exp2(-_WaterFogDensity * depthDifference);
-	        return lerp(_WaterFogColor, backgroundColor, fogFactor);
+	        return lerp(_Color, backgroundColor, fogFactor);
         }
-        */
 
         float4 Reflections (Input IN, float3 surfaceNormal) {
             // Reflections
@@ -146,9 +142,11 @@ Shader "Custom/Ocean"
             float lightAngle = dot(surfaceNormal, lightDirection);
             float3 ambientLighting = UNITY_LIGHTMODEL_AMBIENT.rgb * _Color;
             
+            /*
             float3 H = normalize(-surfaceNormal + _WorldSpaceLightPos0);
-            float ViewDotH = pow(saturate(dot(normalize(IN.viewDir), -H)), 5) * _SubsurfaceScatteringIntensity * (1 - _WaterFogDensity);
-            float3 subsurfaceScattering = attenuation * (_LightColor0 * _WaterFogColor) * ViewDotH;
+            float ViewDotH = pow(saturate(dot(normalize(IN.viewDir), -H)), 5) * _SubsurfaceScatteringIntensity;
+            float3 subsurfaceScattering = attenuation * lerp(_LightColor0, _Color, 0.5) * ViewDotH;
+            */
 
             float3 specularReflection;
             if (lightAngle < 0.0) 
@@ -162,7 +160,7 @@ Shader "Custom/Ocean"
                specularReflection = attenuation * _LightColor0.rgb * pow(max(0.0, dot(reflect(-lightDirection, surfaceNormal), IN.viewDir)), _Shininess);
             }
 
-            return float4(ambientLighting + subsurfaceScattering + specularReflection + environmentReflections, 1.0);
+            return float4((specularReflection + environmentReflections) * _ReflectionStrength, 1.0);
         }
 
         void ResetAlpha (Input IN, SurfaceOutputStandard o, inout fixed4 color) {
@@ -190,6 +188,9 @@ Shader "Custom/Ocean"
 
         void surf (Input IN, inout SurfaceOutputStandard o)
         {
+            o.Smoothness = _Glossiness;
+            o.Metallic = _Metallic;
+
             float4 derivatives = 0;
             derivatives += tex2D(_DerivativesC0Sampler, IN.worldUV / _C0LengthScale);
 
@@ -197,8 +198,7 @@ Shader "Custom/Ocean"
             float3 worldNormal = normalize(float3(-slope.x, 1, -slope.y));
             o.Normal = WorldToTangentNormalVector(IN, worldNormal);
 
-            o.Emission = Reflections(IN, o.Normal);
-            //o.Emission = Refraction(IN.screenPos, o.Normal);
+            o.Emission = Refraction(IN.screenPos, o.Normal) + Reflections(IN, o.Normal);
         }
         ENDCG
     }
