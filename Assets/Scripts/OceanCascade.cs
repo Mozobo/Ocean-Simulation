@@ -46,7 +46,7 @@ public class OceanCascade : MonoBehaviour
         RenderTexture rt = new RenderTexture(texturesSize, texturesSize, 0, format, RenderTextureReadWrite.Linear);
         rt.useMipMap = useMips;
         rt.autoGenerateMips = false;
-        rt.anisoLevel = 6;
+        rt.anisoLevel = 16;
         rt.filterMode = FilterMode.Trilinear;
         rt.wrapMode = TextureWrapMode.Repeat;
         rt.enableRandomWrite = true;
@@ -141,6 +141,9 @@ public class OceanCascade : MonoBehaviour
         ResultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_DerivativesTexture", DerivativesTexture);
         ResultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_TurbulenceTexture", TurbulenceTexture);
         ResultTexturesFillerComputeShader.Dispatch(KERNEL_RESULT_TEXTURES_FILLER, texturesSize/LOCAL_WORK_GROUPS_X, texturesSize/LOCAL_WORK_GROUPS_Y, 1);
+
+        DerivativesTexture.GenerateMips();
+        TurbulenceTexture.GenerateMips();
     }
 
     public void InitialCalculations(){
