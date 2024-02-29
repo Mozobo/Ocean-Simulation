@@ -9,6 +9,9 @@ public class Ocean : MonoBehaviour
 {
     [SerializeField, Range(1, 10000)]
     public int size = 2;
+    // Reduces the number of vertices used to create a mesh of given size
+    [SerializeField, Range(1, 10)]
+    public int vertexDivision = 2;
     public int texturesSize = 256;
 
 
@@ -37,11 +40,17 @@ public class Ocean : MonoBehaviour
 
 
     private void GenerateVertices(){
-        vertices = new Vector3[(size + 1) * (size + 1)];
+        int verticesPerRow = size / vertexDivision;
+        float halfLength = size * 0.5f;
+        float spacing = size / (float)verticesPerRow;
 
-		for (int i = 0, z = 0; z <= size; z++) {
-			for (int x = 0; x <= size; x++, i++) {
-				vertices[i] = new Vector3(x, 0, z);
+        vertices = new Vector3[(verticesPerRow + 1) * (verticesPerRow + 1)];
+        Vector3[] normals = new Vector3[(verticesPerRow + 1) * (verticesPerRow + 1)];
+
+		for (int i = 0, z = 0; z <= verticesPerRow; z++) {
+			for (int x = 0; x <= verticesPerRow; x++, i++) {
+				vertices[i] = new Vector3((float)x * spacing - halfLength, 0, (float)z * spacing - halfLength);
+                normals[i] = Vector3.up;
 			}
 		}
 
@@ -49,14 +58,15 @@ public class Ocean : MonoBehaviour
     }
 
     private void GenerateTriangles(){
-        int[] triangles = new int[size * size * 6];
+        int verticesPerRow = size / vertexDivision;
+        int[] triangles = new int[verticesPerRow  * verticesPerRow  * 6];
 
-		for (int ti = 0, vi = 0, z = 0; z < size; z++, vi++) {
-			for (int x = 0; x < size; x++, ti += 6, vi++) {
+		for (int ti = 0, vi = 0, z = 0; z < verticesPerRow ; z++, vi++) {
+			for (int x = 0; x < verticesPerRow ; x++, ti += 6, vi++) {
 				triangles[ti] = vi;
 				triangles[ti + 3] = triangles[ti + 2] = vi + 1;
-				triangles[ti + 4] = triangles[ti + 1] = vi + size + 1;
-				triangles[ti + 5] = vi + size + 2;
+				triangles[ti + 4] = triangles[ti + 1] = vi + verticesPerRow  + 1;
+				triangles[ti + 5] = vi + verticesPerRow  + 2;
 			}
 		}
 
