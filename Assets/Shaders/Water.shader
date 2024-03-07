@@ -8,23 +8,27 @@
 // https://www.alanzucconi.com/2017/08/30/fast-subsurface-scattering-1/
 // https://abyssal.eu/a-look-through-the-waters-surface/
 // https://docs.unity3d.com/Manual/SL-SurfaceShaders.html
+// https://docs.unity3d.com/Manual/SL-SurfaceShaderTessellation.html
 
 
 // Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
 
-Shader "Custom/Ocean"
+Shader "Custom/Water"
 {
     Properties
     {
         [Header(General parameters)]
         _Color ("Color", Color) = (1,1,1,1)
-        _MainTex ("Albedo (RGB)", 2D) = "white" {}
         _Glossiness ("Glossiness", Range(0,1)) = 0
         _Metallic ("Metallic", Range(0,1)) = 0.0
         _Shininess ("Shininess", Float) = 10
 
+        [Header(Tesselation parameters)]
+        _LODScale("LOD_scale", Range(1,10)) = 0
+
         [Header(Reflection parameters)]
         _ReflectionStrength ("Reflection Strength", Range(0, 1)) = 1
+        _SubsurfaceScatteringColor ("Subsurface Scattering Color", Color) = (1,1,1,1)
         _SubsurfaceScatteringIntensity ("Subsurface Scattering Strength", Range(0, 1)) = 0.25
 
         [Header(Refraction parameters)]
@@ -47,7 +51,6 @@ Shader "Custom/Ocean"
         CGPROGRAM
         // Physically based Standard lighting model
         #pragma surface surf Standard alpha vertex:vert finalcolor:ResetAlpha
-
         // Use shader model 3.0 target, to get nicer looking lighting
         #pragma target 3.0
 
@@ -57,18 +60,15 @@ Shader "Custom/Ocean"
 
         struct Input
         {
-            float2 uv_MainTex;
             float4 screenPos;
             float3 viewDir;
             float3 worldPos;
             float2 worldUV;
-            float3 worldNormal; 
-            INTERNAL_DATA
+            float3 worldNormal; INTERNAL_DATA
+            //float lodC0;
         };
 
         // Variables with value provided by us (Through code or through Unity's interface)
-        sampler2D _MainTex;
-
         half _Glossiness;
         half _Metallic;
         float _Shininess;
@@ -77,7 +77,9 @@ Shader "Custom/Ocean"
         float _ReflectionStrength;
         float _SubsurfaceScatteringIntensity;
         fixed4 _Color;
+        fixed4 _SubsurfaceScatteringColor;
         fixed4 _FoamColor;
+        float _LODScale;
 
         sampler2D _DisplacementsC0Sampler;
         sampler2D _DerivativesC0Sampler;
@@ -126,13 +128,10 @@ Shader "Custom/Ocean"
             float attenuation;
             float3 lightDirection;
  
-            if (0.0 == _WorldSpaceLightPos0.w) // directional light?
-            {
+            if (0.0 == _WorldSpaceLightPos0.w) {  // directional light?
                attenuation = 1.0; // no attenuation
                lightDirection = normalize(_WorldSpaceLightPos0.xyz);
-            } 
-            else // point or spot light
-            {
+            } else { // point or spot light
                float3 vertexToLightSource = _WorldSpaceLightPos0.xyz - IN.worldPos.xyz;
                float distance = length(vertexToLightSource);
                attenuation = 1.0 / distance; // linear attenuation 
@@ -143,20 +142,15 @@ Shader "Custom/Ocean"
             float3 ambientLighting = UNITY_LIGHTMODEL_AMBIENT.rgb * _Color;
             
             /*
-            float3 H = normalize(-surfaceNormal + _WorldSpaceLightPos0);
-            float ViewDotH = pow(saturate(dot(normalize(IN.viewDir), -H)), 5) * _SubsurfaceScatteringIntensity;
-            float3 subsurfaceScattering = attenuation * lerp(_LightColor0, _Color, 0.5) * ViewDotH;
+            float3 H = normalize(surfaceNormal + _WorldSpaceLightPos0);
+            float ViewDotH = pow(saturate(dot(IN.viewDir, -H)), 5) * 30 * _SubsurfaceScatteringIntensity;
+            float3 subsurfaceScattering = attenuation * _SubsurfaceScatteringColor * ViewDotH ;
             */
 
             float3 specularReflection;
-            if (lightAngle < 0.0) 
-               // light source on the wrong side?
-            {
-               specularReflection = float3(0.0, 0.0, 0.0); 
-                  // no specular reflection
-            }
-            else // light source on the right side
-            {
+            if (lightAngle < 0.0) { // light source on the wrong side?
+               specularReflection = float3(0.0, 0.0, 0.0); // no specular reflection
+            } else { // light source on the right side
                specularReflection = attenuation * _LightColor0.rgb * pow(max(0.0, dot(reflect(-lightDirection, surfaceNormal), IN.viewDir)), _Shininess);
             }
 
@@ -173,9 +167,14 @@ Shader "Custom/Ocean"
             float4 worldUV = float4(worldPos.xz, 0, 0);
             o.worldUV = worldUV.xy;
 
+            /*float viewDist = length(_WorldSpaceCameraPos.xyz - worldPos);
+            float lodC0 = min(_LODScale * _C0LengthScale / viewDist, 1);
+            o.lodC0 = lodC0;*/
+
             float3 displacement = 0;
+            // displacement += tex2Dlod(_DisplacementsC0Sampler, worldUV / _C0LengthScale) * lodC0;
             displacement += tex2Dlod(_DisplacementsC0Sampler, worldUV / _C0LengthScale);
-            vertexData.vertex.xyz += mul(unity_WorldToObject,displacement);
+            vertexData.vertex.xyz += mul(unity_WorldToObject, displacement);
         }
 
         float3 WorldToTangentNormalVector(Input IN, float3 normal) {
@@ -186,12 +185,12 @@ Shader "Custom/Ocean"
             return normalize(mul(t2w, normal));
         }
 
-        void surf (Input IN, inout SurfaceOutputStandard o)
-        {
+        void surf (Input IN, inout SurfaceOutputStandard o) {
             o.Smoothness = _Glossiness;
             o.Metallic = _Metallic;
 
             float4 derivatives = 0;
+            // derivatives += tex2D(_DerivativesC0Sampler, IN.worldUV / _C0LengthScale) * IN.lodC0;
             derivatives += tex2D(_DerivativesC0Sampler, IN.worldUV / _C0LengthScale);
 
             float2 slope = float2(derivatives.x / (1 + derivatives.z), derivatives.y / (1 + derivatives.w));
