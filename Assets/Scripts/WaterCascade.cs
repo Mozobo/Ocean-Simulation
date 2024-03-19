@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class OceanCascade : MonoBehaviour
+public class WaterCascade : MonoBehaviour
 {
     private int texturesSize;
 
@@ -14,7 +14,7 @@ public class OceanCascade : MonoBehaviour
     private float depth;
 
     public float cutoffHigh = 1.0f;
-    public float cutoffLow = 0.0f;
+    public float cutoffLow = 0.0001f;
     public float lengthScale = 10.0f;
 
     private ComputeShader initialSpectrumComputeShader;

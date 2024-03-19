@@ -5,13 +5,13 @@ using UnityEditor;
 using UnityEngine.Rendering;
 
 [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
-public class Ocean : MonoBehaviour
+public class WaterBody : MonoBehaviour
 {
     [SerializeField, Range(1, 10000)]
-    public int size = 2;
+    public int planeSize = 2;
     // Reduces the number of vertices used to create a mesh of given size
-    [SerializeField, Range(1, 10)]
-    public int vertexDivision = 2;
+    [SerializeField, Range(1, 100)]
+    public int trianglesSize = 2;
     public int texturesSize = 256;
 
 
@@ -34,15 +34,17 @@ public class Ocean : MonoBehaviour
     public ComputeShader ResultTexturesFillerComputeShader;
     private Texture2D randomNoiseTexture;
 
-    public OceanCascade oceanCascade0;
+    public WaterCascade oceanCascade0;
     //public OceanCascade oceanCascade1;
     //public OceanCascade oceanCascade2;
 
+    public WaterCascade[] cascades;
+
 
     private void GenerateVertices(){
-        int verticesPerRow = size / vertexDivision;
-        float halfLength = size * 0.5f;
-        float spacing = size / (float)verticesPerRow;
+        int verticesPerRow = planeSize / trianglesSize;
+        float halfLength = planeSize * 0.5f;
+        float spacing = planeSize / (float)verticesPerRow;
 
         vertices = new Vector3[(verticesPerRow + 1) * (verticesPerRow + 1)];
         Vector3[] normals = new Vector3[(verticesPerRow + 1) * (verticesPerRow + 1)];
@@ -58,7 +60,7 @@ public class Ocean : MonoBehaviour
     }
 
     private void GenerateTriangles(){
-        int verticesPerRow = size / vertexDivision;
+        int verticesPerRow = planeSize / trianglesSize;
         int[] triangles = new int[verticesPerRow  * verticesPerRow  * 6];
 
 		for (int ti = 0, vi = 0, z = 0; z < verticesPerRow ; z++, vi++) {
@@ -76,7 +78,7 @@ public class Ocean : MonoBehaviour
     private void GenerateWaterPlane(){
         GetComponent<MeshFilter>().mesh = mesh = new Mesh();
 		mesh.name = "Procedural Water plane";
-        // This is important so we can generate a plane bigger than 250 x 250
+        // This is important so we can generate a plane with more than 65.536 vertices
         mesh.indexFormat = IndexFormat.UInt32;
 
         GenerateVertices();
@@ -120,7 +122,7 @@ public class Ocean : MonoBehaviour
         randomNoiseTexture = noiseTexture;
     }
 
-    private void InitializeCascade(OceanCascade cascade){
+    private void InitializeCascade(WaterCascade cascade){
         cascade.setVariables(texturesSize, windSpeed, windDirection, gravity, fetch, depth, initialSpectrumComputeShader, TimeDependentSpectrumComputeShader, IFFTComputeShader, ResultTexturesFillerComputeShader, randomNoiseTexture);
         cascade.InitialCalculations();
     }
@@ -128,17 +130,19 @@ public class Ocean : MonoBehaviour
     void Awake(){
         GenerateWaterPlane();
         GenerateRandomNoiseTexture();
-        InitializeCascade(oceanCascade0);
+        for(int i = 0; i < cascades.Length; i++) {
+            InitializeCascade(cascades[i]);
+        }
         material.SetTexture("_DisplacementsC0Sampler", oceanCascade0.DisplacementsTexture, UnityEngine.Rendering.RenderTextureSubElement.Color);
         material.SetTexture("_DerivativesC0Sampler", oceanCascade0.DerivativesTexture, UnityEngine.Rendering.RenderTextureSubElement.Color);
         material.SetTexture("_TurbulenceC0Sampler", oceanCascade0.TurbulenceTexture, UnityEngine.Rendering.RenderTextureSubElement.Color);
         material.SetFloat("_C0LengthScale", oceanCascade0.lengthScale);
-        //InitializeCascade(oceanCascade1);
-        //InitializeCascade(oceanCascade2);
     }
 
     void Update(){
-        oceanCascade0.CalculateWavesTexturesAtTime(Time.time);
+        for(int i = 0; i < cascades.Length; i++) {
+            cascades[i].CalculateWavesTexturesAtTime(Time.time);
+        }
     }
 
     // Uncomment this function to visualize vertices
