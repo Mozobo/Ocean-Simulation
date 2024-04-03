@@ -37,7 +37,7 @@ public class WaterBody : MonoBehaviour
     public ComputeShader ResultTexturesFillerComputeShader;
     private Texture2D randomNoiseTexture;
 
-
+    private IFFT IFFT;
     private RenderTexture initialSpectrumTextures;
     private RenderTexture WavesDataTextures;
     private RenderTexture DxDzTextures;
@@ -48,12 +48,12 @@ public class WaterBody : MonoBehaviour
     public WaterCascade[] cascades;
 
     private float[] lengthScales;
-    [HideInInspector]
-    public RenderTexture DisplacementsTextures;
-    [HideInInspector]
-    public RenderTexture DerivativesTextures;
-    [HideInInspector]
-    public RenderTexture TurbulenceTextures;
+    ComputeBuffer lengthScalesBuffer;
+    private float[] cutoffs;
+    ComputeBuffer cutoffsBuffer;
+    private RenderTexture DisplacementsTextures;
+    private RenderTexture DerivativesTextures;
+    private RenderTexture TurbulenceTextures;
 
     const int LOCAL_WORK_GROUPS_X = 8;
     const int LOCAL_WORK_GROUPS_Y = 8;
@@ -143,7 +143,7 @@ public class WaterBody : MonoBehaviour
 
     private RenderTexture CreateRenderTextureArray(int arrayDepth, RenderTextureFormat format, bool useMips){
         RenderTexture rt = new RenderTexture(texturesSize, texturesSize, 0, format, RenderTextureReadWrite.Linear);
-         rt.dimension = UnityEngine.Rendering.TextureDimension.Tex2DArray;
+        rt.dimension = UnityEngine.Rendering.TextureDimension.Tex2DArray;
         rt.volumeDepth = arrayDepth;
         rt.useMipMap = useMips;
         rt.autoGenerateMips = false;
@@ -155,39 +155,45 @@ public class WaterBody : MonoBehaviour
         return rt;
     }
 
-    private RenderTexture CreateRGRenderTexture(bool useMips = false) {
-        return CreateRenderTextureArray(RenderTextureFormat.RGFloat, useMips);
+    private RenderTexture CreateRGRenderTextureArray(int arrayDepth, bool useMips = false) {
+        return CreateRenderTextureArray(arrayDepth, RenderTextureFormat.RGFloat, useMips);
     }
 
-    private RenderTexture CreateRGBARenderTexture(bool useMips = false) {
-        return CreateRenderTextureArray(RenderTextureFormat.ARGBFloat, useMips);
+    private RenderTexture CreateRGBARenderTextureArray(int arrayDepth, bool useMips = false) {
+        return CreateRenderTextureArray(arrayDepth, RenderTextureFormat.ARGBFloat, useMips);
     }
 
-    private void CalculateInitialSpectrumTexture(){
+    private void CalculateInitialSpectrumTextures(){
+        lengthScalesBuffer = new ComputeBuffer(cascades.Length, 4, ComputeBufferType.Default);
+        lengthScalesBuffer.SetData(lengthScales);
+        cutoffsBuffer = new ComputeBuffer(cascades.Length * 2, 4, ComputeBufferType.Default);
+        cutoffsBuffer.SetData(cutoffs);
+
         // Calculate the initial spectrum H0(K)
         initialSpectrumComputeShader.SetInt("_TextureSize", texturesSize);
+        initialSpectrumComputeShader.SetInt("_NbCascades", cascades.Length);
         initialSpectrumComputeShader.SetTexture(KERNEL_INITIAL_SPECTRUM, "_RandomNoise", randomNoiseTexture);
-        initialSpectrumComputeShader.SetTexture(KERNEL_INITIAL_SPECTRUM, "_InitialSpectrumTexture", initialSpectrumTexture);
-        initialSpectrumComputeShader.SetTexture(KERNEL_INITIAL_SPECTRUM, "_WavesDataTexture", WavesDataTexture);
-        initialSpectrumComputeShader.SetFloat("_LengthScale", lengthScale);
+        initialSpectrumComputeShader.SetTexture(KERNEL_INITIAL_SPECTRUM, "_InitialSpectrumTextures", initialSpectrumTextures);
+        initialSpectrumComputeShader.SetTexture(KERNEL_INITIAL_SPECTRUM, "_WavesDataTextures", WavesDataTextures);
+        initialSpectrumComputeShader.SetBuffer(KERNEL_INITIAL_SPECTRUM, "_LengthScales", lengthScalesBuffer);
+        initialSpectrumComputeShader.SetBuffer(KERNEL_INITIAL_SPECTRUM, "_Cutoffs", cutoffsBuffer);
         initialSpectrumComputeShader.SetFloat("_WindSpeed", windSpeed);
         initialSpectrumComputeShader.SetFloat("_WindDirectionX", windDirection.x);
         initialSpectrumComputeShader.SetFloat("_WindDirectionY", windDirection.y);
         initialSpectrumComputeShader.SetFloat("_Gravity", gravity);
         initialSpectrumComputeShader.SetFloat("_Fetch", fetch);
-        initialSpectrumComputeShader.SetFloat("_CutoffHigh", cutoffHigh);
-        initialSpectrumComputeShader.SetFloat("_CutoffLow", cutoffLow);
         initialSpectrumComputeShader.SetFloat("_Depth", depth);
         initialSpectrumComputeShader.Dispatch(KERNEL_INITIAL_SPECTRUM, texturesSize/LOCAL_WORK_GROUPS_X, texturesSize/LOCAL_WORK_GROUPS_Y, 1);
 
         // Store, in each element on the texture, the value of the complex conjugate element
         // Now the Initial spectrum texture stores H0(K) and H0(-k)*
-        initialSpectrumComputeShader.SetTexture(KERNEL_CONJUGATED_SPECTRUM, "_InitialSpectrumTexture", initialSpectrumTexture);
+        initialSpectrumComputeShader.SetTexture(KERNEL_CONJUGATED_SPECTRUM, "_InitialSpectrumTextures", initialSpectrumTextures);
         initialSpectrumComputeShader.SetInt("_TextureSize", texturesSize);
+        initialSpectrumComputeShader.SetInt("_NbCascades", cascades.Length);
         initialSpectrumComputeShader.Dispatch(KERNEL_CONJUGATED_SPECTRUM, texturesSize/LOCAL_WORK_GROUPS_X, texturesSize/LOCAL_WORK_GROUPS_Y, 1);
     }
 
-    public void CalculateWavesTexturesAtTime(float time) {
+    /*public void CalculateWavesTexturesAtTime(float time) {
         TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_ConjugatedInitialSpectrumTexture", initialSpectrumTexture);
         TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_WavesDataTexture", WavesDataTexture);
         TimeDependentSpectrumComputeShader.SetFloat("_Time", time);
@@ -213,37 +219,52 @@ public class WaterBody : MonoBehaviour
 
         DerivativesTexture.GenerateMips();
         TurbulenceTexture.GenerateMips();
-    }
+    }*/
 
     void Awake(){
         GenerateWaterPlane();
         GenerateRandomNoiseTexture();
+
+        IFFT = new IFFT(IFFTComputeShader, texturesSize);
 
         KERNEL_INITIAL_SPECTRUM = initialSpectrumComputeShader.FindKernel("CalculateInitialSpectrumTexture");
         KERNEL_CONJUGATED_SPECTRUM = initialSpectrumComputeShader.FindKernel("CalculateConjugatedInitialSpectrumTexture");
         KERNEL_TIME_DEPENDENT_SPECTRUM = TimeDependentSpectrumComputeShader.FindKernel("CalculateTimeDependentComplexAmplitudesAndDerivatives");
         KERNEL_RESULT_TEXTURES_FILLER = ResultTexturesFillerComputeShader.FindKernel("FillResultTextures");
 
-        WavesDataTextures = CreateRGBARenderTexture();
-        initialSpectrumTextures = CreateRGBARenderTexture();
-        DxDzTextures = CreateRGRenderTexture();
-        DyDxzTextures = CreateRGRenderTexture();
-        DyxDyzTextures = CreateRGRenderTexture();
-        DxxDzzTextures = CreateRGRenderTexture();
-        DisplacementsTextures = CreateRGBARenderTexture();
-        DerivativesTextures = CreateRGBARenderTexture(true);
-        TurbulenceTextures = CreateRGBARenderTexture(true);
+        WavesDataTextures = CreateRGBARenderTextureArray(cascades.Length);
+        initialSpectrumTextures = CreateRGBARenderTextureArray(cascades.Length);
+        DxDzTextures = CreateRGRenderTextureArray(cascades.Length);
+        DyDxzTextures = CreateRGRenderTextureArray(cascades.Length);
+        DyxDyzTextures = CreateRGRenderTextureArray(cascades.Length);
+        DxxDzzTextures = CreateRGRenderTextureArray(cascades.Length);
+        DisplacementsTextures = CreateRGBARenderTextureArray(cascades.Length);
+        DerivativesTextures = CreateRGBARenderTextureArray(cascades.Length, true);
+        TurbulenceTextures = CreateRGBARenderTextureArray(cascades.Length, true);
 
         lengthScales = new float[cascades.Length];
+        cutoffs = new float[cascades.Length * 2];
 
         for(int i = 0; i < cascades.Length; i++) {
             lengthScales[i] = cascades[i].lengthScale;
+            cutoffs[i*2] = cascades[i].cutoffLow;
+            cutoffs[i*2 + 1] = cascades[i].cutoffHigh;
         }
+
+        CalculateInitialSpectrumTextures();
     }
 
     void Update(){
-        CalculateWavesTexturesAtTime(Time.time);
+        //CalculateWavesTexturesAtTime(Time.time);
     }
+
+    /* Prevent leaks from the Buffers */
+    void OnDisable () {
+		lengthScalesBuffer.Release();
+        lengthScales = null;
+        cutoffsBuffer.Release();
+        cutoffsBuffer = null;
+	}
 
     // Uncomment this function to visualize vertices
     /*private void OnDrawGizmos () {

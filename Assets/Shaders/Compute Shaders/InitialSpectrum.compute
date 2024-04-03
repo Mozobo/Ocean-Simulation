@@ -7,19 +7,20 @@
 
 static const float PI = 3.14159265;
 
-RWTexture2D<float4> _InitialSpectrumTexture;
-Texture2D<float2> _RandomNoise;
-RWTexture2D<float4> _WavesDataTexture;
-
+uint _NbCascades;
 uint _TextureSize;
-float _LengthScale;
+
+Texture2D<float2> _RandomNoise;
+RWTexture2DArray<float4> _InitialSpectrumTextures;
+RWTexture2DArray<float4> _WavesDataTextures;
+StructuredBuffer<float> _LengthScales;
+StructuredBuffer<float> _Cutoffs;
+
 float _WindSpeed;
 float _WindDirectionX;
 float _WindDirectionY;
 float _Gravity;
 float _Fetch;
-float _CutoffHigh;
-float _CutoffLow;
 float _Depth;
 
 
@@ -112,28 +113,30 @@ float factor (float k) {
 [numthreads(8,8,1)]
 void CalculateInitialSpectrumTexture (uint3 id : SV_DispatchThreadID)
 {
-    float deltaK = 2 * PI/_LengthScale;
-    uint halfSize = _TextureSize/2;
-    int nx = id.x - halfSize;
-    int nz = id.y - halfSize;
-    float2 kVector = float2(nx, nz) * deltaK;
-    // K is the wavenumber
-    float k = length(kVector);
+    for (uint i = 0; i < _NbCascades; ++i) {
+        float deltaK = 2 * PI/_LengthScales[i];
+        uint halfSize = _TextureSize/2;
+        int nx = id.x - halfSize;
+        int nz = id.y - halfSize;
+        float2 kVector = float2(nx, nz) * deltaK;
+        // K is the wavenumber
+        float k = length(kVector);
 
-    if(k >= _CutoffLow && k <= _CutoffHigh){
-        float kAngle = atan2(kVector.y, kVector.x);
-        float angularFrequency = AngularFrequency(k);
-        // The peak frequency is calculated here because we also need it for the directional spread
-        //float peakAngularFrequency = 22 * pow(abs(_Gravity * _Gravity/(_WindSpeed * _Fetch)), 0.3333f);
+        if(k >= _Cutoffs[i * 2] && k <= _Cutoffs[i * 2 + 1]){
+            float kAngle = atan2(kVector.y, kVector.x);
+            float angularFrequency = AngularFrequency(k);
+            // The peak frequency is calculated here because we also need it for the directional spread
+            //float peakAngularFrequency = 22 * pow(abs(_Gravity * _Gravity/(_WindSpeed * _Fetch)), 0.3333f);
 
-        //_InitialSpectrumTexture[id.xy] = float4(float2(_RandomNoise[id.xy].x, _RandomNoise[id.xy].y) * sqrt(2 * JONSWAP(angularFrequency, peakAngularFrequency) * DirectionalSpread(angularFrequency, peakAngularFrequency, kAngle) * abs(FrequencyDerivative(k, angularFrequency)) / k * deltaK * deltaK), 0.0f, 0.0f);
-        _InitialSpectrumTexture[id.xy] = float4(float2(_RandomNoise[id.xy].x, _RandomNoise[id.xy].y) * sqrt(Phillips(k, kAngle) * factor(k)), 0.0f, 0.0f);
-        // WavesData Texture contains information of the wave on each pixel
-        // float4(direction on the x axis, 1/k for the FFT, direction on the z axis, wave frequency);
-        _WavesDataTexture[id.xy] = float4(kVector.x, 1/k, kVector.y, angularFrequency);
-    } else {
-        _InitialSpectrumTexture[id.xy] = 0;
-        _WavesDataTexture[id.xy] = float4(kVector.x, 1, kVector.y, 0);
+            //_InitialSpectrumTextures[id.xy] = float4(float2(_RandomNoise[id.xy].x, _RandomNoise[id.xy].y) * sqrt(2 * JONSWAP(angularFrequency, peakAngularFrequency) * DirectionalSpread(angularFrequency, peakAngularFrequency, kAngle) * abs(FrequencyDerivative(k, angularFrequency)) / k * deltaK * deltaK), 0.0f, 0.0f);
+            _InitialSpectrumTextures[uint3(id.xy, i)] = float4(float2(_RandomNoise[id.xy].x, _RandomNoise[id.xy].y) * sqrt(Phillips(k, kAngle) * factor(k)), 0.0f, 0.0f);
+            // WavesData Texture contains information of the wave on each pixel
+            // float4(direction on the x axis, 1/k for the FFT, direction on the z axis, wave frequency);
+            _WavesDataTextures[uint3(id.xy, i)] = float4(kVector.x, 1/k, kVector.y, angularFrequency);
+        } else {
+            _InitialSpectrumTextures[uint3(id.xy, i)] = 0;
+            _WavesDataTextures[uint3(id.xy, i)] = float4(kVector.x, 1, kVector.y, 0);
+        }
     }
 }
 
@@ -143,8 +146,10 @@ void CalculateInitialSpectrumTexture (uint3 id : SV_DispatchThreadID)
 [numthreads(8,8,1)]
 void CalculateConjugatedInitialSpectrumTexture (uint3 id : SV_DispatchThreadID)
 {
-    float2 H0K = _InitialSpectrumTexture[id.xy].xy;
-    uint2 complexConjugateIndex = uint2((_TextureSize - id.x) % _TextureSize, (_TextureSize - id.y) % _TextureSize);
-    float2 H0MinusK = _InitialSpectrumTexture[complexConjugateIndex].xy;
-    _InitialSpectrumTexture[id.xy] = float4(H0K.x, H0K.y, H0MinusK.x, -H0MinusK.y);
+    for (uint i = 0; i < _NbCascades; ++i) {
+        float2 H0K = _InitialSpectrumTextures[uint3(id.xy, i)].xy;
+        uint2 complexConjugateIndex = uint2((_TextureSize - id.x) % _TextureSize, (_TextureSize - id.y) % _TextureSize);
+        float2 H0MinusK = _InitialSpectrumTextures[uint3(complexConjugateIndex, i)].xy;
+        _InitialSpectrumTextures[uint3(id.xy, i)] = float4(H0K.x, H0K.y, H0MinusK.x, -H0MinusK.y);
+    }
 }
