@@ -2,29 +2,33 @@
 #pragma kernel FillResultTextures
 
 
-RWTexture2D<float3> _DisplacementsTexture;
-RWTexture2D<float4> _DerivativesTexture;
-RWTexture2D<float4> _TurbulenceTexture;
+uint _NbCascades;
 
-RWTexture2D<float2> _DxDzTexture;
-RWTexture2D<float2> _DyDxzTexture;
-RWTexture2D<float2> _DyxDyzTexture;
-RWTexture2D<float2> _DxxDzzTexture;
+RWTexture2DArray<float3> _DisplacementsTextures;
+RWTexture2DArray<float4> _DerivativesTextures;
+RWTexture2DArray<float4> _TurbulenceTextures;
+
+RWTexture2DArray<float2> _DxDzTextures;
+RWTexture2DArray<float2> _DyDxzTextures;
+RWTexture2DArray<float2> _DyxDyzTextures;
+RWTexture2DArray<float2> _DxxDzzTextures;
 
 [numthreads(8,8,1)]
 void FillResultTextures(uint3 id : SV_DispatchThreadID)
 {
-    float2 DxDz = _DxDzTexture[id.xy];
-    float2 DyDxz = _DyDxzTexture[id.xy];
-    float2 DyxDyz = _DyxDyzTexture[id.xy];
-    float2 DxxDzz = _DxxDzzTexture[id.xy];
+    for (uint i = 0; i < _NbCascades; ++i) {
+        float2 DxDz = _DxDzTextures[uint3(id.xy,i)];
+        float2 DyDxz = _DyDxzTextures[uint3(id.xy,i)];
+        float2 DyxDyz = _DyxDyzTextures[uint3(id.xy,i)];
+        float2 DxxDzz = _DxxDzzTextures[uint3(id.xy,i)];
 
-    _DisplacementsTexture[id.xy] = float3(DxDz.x, DyDxz.x, DxDz.y);
-    _DerivativesTexture[id.xy] = float4(DyxDyz, DxxDzz);
-    float jacobian = (1 + DxxDzz.x) * (1 + DxxDzz.y) - DyDxz.y * DyDxz.y;
-    float foam = _TurbulenceTexture[id.xy].x;
-    float foamDecayRate = 1;
-    foam *= exp(-foamDecayRate);
-    if (foam < jacobian) foam += jacobian;
-    _TurbulenceTexture[id.xy] = foam;
+        _DisplacementsTextures[uint3(id.xy,i)] = float3(DxDz.x, DyDxz.x, DxDz.y);
+        _DerivativesTextures[uint3(id.xy,i)] = float4(DyxDyz, DxxDzz);
+        float jacobian = (1 + DxxDzz.x) * (1 + DxxDzz.y) - DyDxz.y * DyDxz.y;
+        float foam = _TurbulenceTextures[uint3(id.xy,i)].x;
+        float foamDecayRate = 1;
+        foam *= exp(-foamDecayRate);
+        if (foam < jacobian) foam += jacobian;
+        _TurbulenceTextures[uint3(id.xy,i)] = foam;
+    }
 }

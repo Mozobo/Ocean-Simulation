@@ -3,13 +3,14 @@
 
 // Create a RenderTexture with enableRandomWrite flag and set it
 // with cs.SetTexture
-RWTexture2D<float2> _DxDzTexture;
-RWTexture2D<float2> _DyDxzTexture;
-RWTexture2D<float2> _DyxDyzTexture;
-RWTexture2D<float2> _DxxDzzTexture;
+RWTexture2DArray<float2> _DxDzTextures;
+RWTexture2DArray<float2> _DyDxzTextures;
+RWTexture2DArray<float2> _DyxDyzTextures;
+RWTexture2DArray<float2> _DxxDzzTextures;
 
-Texture2D<float4> _ConjugatedInitialSpectrumTexture;
-Texture2D<float4> _WavesDataTexture;
+Texture2DArray<float4> _ConjugatedInitialSpectrumTextures;
+Texture2DArray<float4> _WavesDataTextures;
+uint _NbCascades;
 float _Time;
 
 float2 ComplexMult(float2 a, float2 b){
@@ -18,27 +19,29 @@ float2 ComplexMult(float2 a, float2 b){
 
 [numthreads(8,8,1)]
 void CalculateTimeDependentComplexAmplitudesAndDerivatives (uint3 id : SV_DispatchThreadID){
-    float4 wave = _WavesDataTexture[id.xy];
-	float phase = wave.w * _Time;
-	float2 exponent = float2(cos(phase), sin(phase));
-	float2 h = ComplexMult(_ConjugatedInitialSpectrumTexture[id.xy].xy, exponent) + ComplexMult(_ConjugatedInitialSpectrumTexture[id.xy].zw, float2(exponent.x, -exponent.y));
-	float2 ih = float2(-h.y, h.x);
+    for (uint i = 0; i < _NbCascades; ++i) {
+        float4 wave = _WavesDataTextures[uint3(id.xy, i)];
+        float phase = wave.w * _Time;
+        float2 exponent = float2(cos(phase), sin(phase));
+        float2 h = ComplexMult(_ConjugatedInitialSpectrumTextures[uint3(id.xy, i)].xy, exponent) + ComplexMult(_ConjugatedInitialSpectrumTextures[uint3(id.xy, i)].zw, float2(exponent.x, -exponent.y));
+        float2 ih = float2(-h.y, h.x);
 
-    float2 displacementYDx = ih * wave.x;
-    float2 displacementYDz = ih * wave.z;
+        float2 displacementYDx = ih * wave.x;
+        float2 displacementYDz = ih * wave.z;
 
-    float2 displacementX = displacementYDx * wave.y;
-	float2 displacementY = h;
-	float2 displacementZ = displacementYDz * wave.y;
+        float2 displacementX = displacementYDx * wave.y;
+        float2 displacementY = h;
+        float2 displacementZ = displacementYDz * wave.y;
 
-    float2 aux = -h * wave.y; 
-		 
-	float2 displacementXDx = aux * wave.x * wave.x;
-	float2 displacementZDz = aux * wave.z * wave.z;
-    float2 displacementZDx = aux * wave.x * wave.z;
+        float2 aux = -h * wave.y; 
+            
+        float2 displacementXDx = aux * wave.x * wave.x;
+        float2 displacementZDz = aux * wave.z * wave.z;
+        float2 displacementZDx = aux * wave.x * wave.z;
 
-    _DxDzTexture[id.xy] = float2(displacementX.x - displacementZ.y, displacementX.y + displacementZ.x);
-    _DyDxzTexture[id.xy] = float2(displacementY.x - displacementZDx.y, displacementY.y + displacementZDx.x);
-    _DyxDyzTexture[id.xy] = float2(displacementYDx.x - displacementYDz.y, displacementYDx.y + displacementYDz.x);
-    _DxxDzzTexture[id.xy] = float2(displacementXDx.x - displacementZDz.y, displacementXDx.y + displacementZDz.x);
+        _DxDzTextures[uint3(id.xy, i)] = float2(displacementX.x - displacementZ.y, displacementX.y + displacementZ.x);
+        _DyDxzTextures[uint3(id.xy, i)] = float2(displacementY.x - displacementZDx.y, displacementY.y + displacementZDx.x);
+        _DyxDyzTextures[uint3(id.xy, i)] = float2(displacementYDx.x - displacementYDz.y, displacementYDx.y + displacementYDz.x);
+        _DxxDzzTextures[uint3(id.xy, i)] = float2(displacementXDx.x - displacementZDz.y, displacementXDx.y + displacementZDz.x);
+    }
 }

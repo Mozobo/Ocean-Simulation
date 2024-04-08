@@ -10,13 +10,16 @@ public class IFFT
     private int KERNEL_IFFT_PERMUTE;
     private ComputeShader IFFTComputeShader;
     private RenderTexture TwiddleFactorsAndInputIndicesTexture;
-    private RenderTexture PingPongTexture;
+    private RenderTexture PingPongTextures;
     const int LOCAL_WORK_GROUPS_X = 8;
     const int LOCAL_WORK_GROUPS_Y = 8;
     private int texturesSize;
+    private int NbCascades;
 
-    private RenderTexture CreatePingPongTexture(){
+    private RenderTexture CreatePingPongTextureArray(){
         RenderTexture rt = new RenderTexture(texturesSize, texturesSize, 0, RenderTextureFormat.RGFloat, RenderTextureReadWrite.Linear);
+        rt.dimension = UnityEngine.Rendering.TextureDimension.Tex2DArray;
+        rt.volumeDepth = NbCascades;
         rt.useMipMap = false;
         rt.autoGenerateMips = false;
         rt.anisoLevel = 6;
@@ -45,9 +48,10 @@ public class IFFT
         IFFTComputeShader.Dispatch(KERNEL_IFFT_PRECOMPUTE_FACTORS_AND_INDICES, logSize, texturesSize/2/LOCAL_WORK_GROUPS_Y, 1);
     }
 
-    public IFFT(ComputeShader IFFTComputeShader, int texturesSize){
+    public IFFT(ComputeShader IFFTComputeShader, int texturesSize, int nbCascades){
         this.IFFTComputeShader = IFFTComputeShader;
         this.texturesSize = texturesSize;
+        this.NbCascades = nbCascades;
 
         KERNEL_IFFT_PRECOMPUTE_FACTORS_AND_INDICES = this.IFFTComputeShader.FindKernel("PrecomputeTwiddleFactorsAndInputIndices");
         KERNEL_IFFT_HORIZONTAL_STEP = this.IFFTComputeShader.FindKernel("HorizontalStepIFFT");
@@ -55,16 +59,18 @@ public class IFFT
         KERNEL_IFFT_PERMUTE = this.IFFTComputeShader.FindKernel("Permute");
 
         CalculateTwiddleFactorsAndInputIndicesTexture();
-        PingPongTexture = CreatePingPongTexture();
+        PingPongTextures = CreatePingPongTextureArray();
     }
 
-    public void InverseFastFourierTransform(RenderTexture inputTexture) {
+    public void InverseFastFourierTransform(RenderTexture inputTextureArray) {
         int logSize = (int)Mathf.Log(texturesSize, 2);
         bool pingPong = false;
 
+        IFFTComputeShader.SetInt("_NbCascades", NbCascades);
+
         IFFTComputeShader.SetTexture(KERNEL_IFFT_HORIZONTAL_STEP, "_TwiddleFactorsAndInputIndicesTexture", TwiddleFactorsAndInputIndicesTexture);
-        IFFTComputeShader.SetTexture(KERNEL_IFFT_HORIZONTAL_STEP, "_InputTexture", inputTexture);
-        IFFTComputeShader.SetTexture(KERNEL_IFFT_HORIZONTAL_STEP, "_PingPongTexture", PingPongTexture);
+        IFFTComputeShader.SetTexture(KERNEL_IFFT_HORIZONTAL_STEP, "_InputTextures", inputTextureArray);
+        IFFTComputeShader.SetTexture(KERNEL_IFFT_HORIZONTAL_STEP, "_PingPongTextures", PingPongTextures);
         for (int i = 0; i < logSize; i++)
         {
             IFFTComputeShader.SetInt("_Step", i);
@@ -74,8 +80,8 @@ public class IFFT
         }
 
         IFFTComputeShader.SetTexture(KERNEL_IFFT_VERTICAL_STEP, "_TwiddleFactorsAndInputIndicesTexture", TwiddleFactorsAndInputIndicesTexture);
-        IFFTComputeShader.SetTexture(KERNEL_IFFT_VERTICAL_STEP, "_InputTexture", inputTexture);
-        IFFTComputeShader.SetTexture(KERNEL_IFFT_VERTICAL_STEP, "_PingPongTexture", PingPongTexture);
+        IFFTComputeShader.SetTexture(KERNEL_IFFT_VERTICAL_STEP, "_InputTextures", inputTextureArray);
+        IFFTComputeShader.SetTexture(KERNEL_IFFT_VERTICAL_STEP, "_PingPongTextures", PingPongTextures);
         for (int i = 0; i < logSize; i++)
         {
             IFFTComputeShader.SetInt("_Step", i);
@@ -84,7 +90,7 @@ public class IFFT
             pingPong = !pingPong;
         }
 
-        IFFTComputeShader.SetTexture(KERNEL_IFFT_PERMUTE, "_InputTexture", inputTexture);
+        IFFTComputeShader.SetTexture(KERNEL_IFFT_PERMUTE, "_InputTextures", inputTextureArray);
         IFFTComputeShader.Dispatch(KERNEL_IFFT_PERMUTE, texturesSize / LOCAL_WORK_GROUPS_X, texturesSize / LOCAL_WORK_GROUPS_Y, 1);
     }
 }

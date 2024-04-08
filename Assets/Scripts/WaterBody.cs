@@ -193,39 +193,41 @@ public class WaterBody : MonoBehaviour
         initialSpectrumComputeShader.Dispatch(KERNEL_CONJUGATED_SPECTRUM, texturesSize/LOCAL_WORK_GROUPS_X, texturesSize/LOCAL_WORK_GROUPS_Y, 1);
     }
 
-    /*public void CalculateWavesTexturesAtTime(float time) {
-        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_ConjugatedInitialSpectrumTexture", initialSpectrumTexture);
-        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_WavesDataTexture", WavesDataTexture);
+    public void CalculateWavesTexturesAtTime(float time) {
+        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_ConjugatedInitialSpectrumTextures", initialSpectrumTextures);
+        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_WavesDataTextures", WavesDataTextures);
         TimeDependentSpectrumComputeShader.SetFloat("_Time", time);
-        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DxDzTexture", DxDzTexture);
-        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DyDxzTexture", DyDxzTexture);
-        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DyxDyzTexture", DyxDyzTexture);
-        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DxxDzzTexture", DxxDzzTexture);
+        TimeDependentSpectrumComputeShader.SetInt("_NbCascades", cascades.Length);
+        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DxDzTextures", DxDzTextures);
+        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DyDxzTextures", DyDxzTextures);
+        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DyxDyzTextures", DyxDyzTextures);
+        TimeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DxxDzzTextures", DxxDzzTextures);
         TimeDependentSpectrumComputeShader.Dispatch(KERNEL_TIME_DEPENDENT_SPECTRUM, texturesSize/LOCAL_WORK_GROUPS_X, texturesSize/LOCAL_WORK_GROUPS_Y, 1);
 
-        IFFT.InverseFastFourierTransform(DxDzTexture);
-        IFFT.InverseFastFourierTransform(DyDxzTexture);
-        IFFT.InverseFastFourierTransform(DyxDyzTexture);
-        IFFT.InverseFastFourierTransform(DxxDzzTexture);
+        IFFT.InverseFastFourierTransform(DxDzTextures);
+        IFFT.InverseFastFourierTransform(DyDxzTextures);
+        IFFT.InverseFastFourierTransform(DyxDyzTextures);
+        IFFT.InverseFastFourierTransform(DxxDzzTextures);
 
-        ResultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_DxDzTexture", DxDzTexture);
-        ResultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_DyDxzTexture", DyDxzTexture);
-        ResultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_DyxDyzTexture", DyxDyzTexture);
-        ResultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_DxxDzzTexture", DxxDzzTexture);
-        ResultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_DisplacementsTexture", DisplacementsTexture);
-        ResultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_DerivativesTexture", DerivativesTexture);
-        ResultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_TurbulenceTexture", TurbulenceTexture);
+        ResultTexturesFillerComputeShader.SetInt("_NbCascades", cascades.Length);
+        ResultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_DxDzTextures", DxDzTextures);
+        ResultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_DyDxzTextures", DyDxzTextures);
+        ResultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_DyxDyzTextures", DyxDyzTextures);
+        ResultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_DxxDzzTextures", DxxDzzTextures);
+        ResultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_DisplacementsTextures", DisplacementsTextures);
+        ResultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_DerivativesTextures", DerivativesTextures);
+        ResultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_TurbulenceTextures", TurbulenceTextures);
         ResultTexturesFillerComputeShader.Dispatch(KERNEL_RESULT_TEXTURES_FILLER, texturesSize/LOCAL_WORK_GROUPS_X, texturesSize/LOCAL_WORK_GROUPS_Y, 1);
 
-        DerivativesTexture.GenerateMips();
-        TurbulenceTexture.GenerateMips();
-    }*/
+        DerivativesTextures.GenerateMips();
+        TurbulenceTextures.GenerateMips();
+    }
 
     void Awake(){
         GenerateWaterPlane();
         GenerateRandomNoiseTexture();
 
-        IFFT = new IFFT(IFFTComputeShader, texturesSize);
+        IFFT = new IFFT(IFFTComputeShader, texturesSize, cascades.Length);
 
         KERNEL_INITIAL_SPECTRUM = initialSpectrumComputeShader.FindKernel("CalculateInitialSpectrumTexture");
         KERNEL_CONJUGATED_SPECTRUM = initialSpectrumComputeShader.FindKernel("CalculateConjugatedInitialSpectrumTexture");
@@ -255,7 +257,7 @@ public class WaterBody : MonoBehaviour
     }
 
     void Update(){
-        //CalculateWavesTexturesAtTime(Time.time);
+        CalculateWavesTexturesAtTime(Time.time);
     }
 
     /* Prevent leaks from the Buffers */
