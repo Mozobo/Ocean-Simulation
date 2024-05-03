@@ -35,10 +35,6 @@ Shader "Custom/Water"
         _RefractionStrength ("Refraction Strength", Range(0, 1)) = 0.5
 		_WaterFogDensity ("Water Fog Density", Range(0, 1)) = 0.1
 
-        [Header(Cascade 0)]
-        _DisplacementsC0Sampler("Displacements C0", 2D) = "black" {}
-        [HideInInspector]_DerivativesC0Sampler("Derivatives C0", 2D) = "black" {}
-        [HideInInspector]_TurbulenceC0Sampler("Turbulence C0", 2D) = "white" {}
     }
     SubShader
     {
@@ -81,10 +77,11 @@ Shader "Custom/Water"
         fixed4 _FoamColor;
         float _LODScale;
 
-        sampler2D _DisplacementsC0Sampler;
-        sampler2D _DerivativesC0Sampler;
-        sampler2D _TurbulenceC0Sampler;
-        float _C0LengthScale;
+        int _NbCascades;
+        UNITY_DECLARE_TEX2DARRAY(_DisplacementsTextures);
+        UNITY_DECLARE_TEX2DARRAY(_DerivativesTextures);
+        UNITY_DECLARE_TEX2DARRAY(_TurbulenceTextures);
+        uniform float _LengthScales [5];
 
         float3 Refraction (float4 screenPos, float3 tangentSpaceNormal) {
             float2 uvOffset = tangentSpaceNormal.xy * _RefractionStrength;
@@ -173,7 +170,10 @@ Shader "Custom/Water"
 
             float3 displacement = 0;
             // displacement += tex2Dlod(_DisplacementsC0Sampler, worldUV / _C0LengthScale) * lodC0;
-            displacement += tex2Dlod(_DisplacementsC0Sampler, worldUV / _C0LengthScale);
+            //displacement += tex2Dlod(_DisplacementsC0Sampler, worldUV / _C0LengthScale);
+            for (int i = 0; i < _NbCascades; i++) {
+                displacement += UNITY_SAMPLE_TEX2DARRAY_LOD(_DisplacementsTextures, float3(worldUV.xy / _LengthScales[i], i), 0);
+            }
             vertexData.vertex.xyz += mul(unity_WorldToObject, displacement);
         }
 
@@ -191,7 +191,10 @@ Shader "Custom/Water"
 
             float4 derivatives = 0;
             // derivatives += tex2D(_DerivativesC0Sampler, IN.worldUV / _C0LengthScale) * IN.lodC0;
-            derivatives += tex2D(_DerivativesC0Sampler, IN.worldUV / _C0LengthScale);
+            //derivatives += tex2D(_DerivativesC0Sampler, IN.worldUV / _C0LengthScale);
+            for (int i = 0; i < _NbCascades; i++) {
+                derivatives += UNITY_SAMPLE_TEX2DARRAY(_DerivativesTextures, float3(IN.worldUV / _LengthScales[i], i));
+            }
 
             float2 slope = float2(derivatives.x / (1 + derivatives.z), derivatives.y / (1 + derivatives.w));
             float3 worldNormal = normalize(float3(-slope.x, 1, -slope.y));

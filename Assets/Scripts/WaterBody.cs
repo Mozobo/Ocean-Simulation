@@ -254,6 +254,12 @@ public class WaterBody : MonoBehaviour
         }
 
         CalculateInitialSpectrumTextures();
+
+        material.SetInt("_NbCascades", cascades.Length);
+        material.SetTexture("_DisplacementsTextures", DisplacementsTextures);
+        material.SetTexture("_DerivativesTextures", DerivativesTextures);
+        material.SetTexture("_TurbulenceTextures", TurbulenceTextures);
+        material.SetFloatArray("_LengthScales", lengthScales);
     }
 
     void Update(){
