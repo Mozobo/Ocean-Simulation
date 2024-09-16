@@ -27,7 +27,7 @@ float2 ComplexExp(float2 a){
 	return float2(cos(a.y), sin(a.y)) * exp(a.x);
 }
 
-// This is what is also called the "Butterfly Texture" for IFFT
+// This is also called the "Butterfly Texture"
 // It contains the twiddle factors and input indices to perform the "butterfly operations" of the Cooley-Tukey algorithm
 // https://en.wikipedia.org/wiki/Butterfly_diagram
 // https://www.tutorialspoint.com/digital_signal_processing/dsp_discrete_time_frequency_transform.htm

@@ -81,7 +81,7 @@ Shader "Custom/Water"
         UNITY_DECLARE_TEX2DARRAY(_DisplacementsTextures);
         UNITY_DECLARE_TEX2DARRAY(_DerivativesTextures);
         UNITY_DECLARE_TEX2DARRAY(_TurbulenceTextures);
-        uniform float _LengthScales [5];
+        uniform float _WaveLengths [5];
 
         float3 Refraction (float4 screenPos, float3 tangentSpaceNormal) {
             float2 uvOffset = tangentSpaceNormal.xy * _RefractionStrength;
@@ -172,7 +172,7 @@ Shader "Custom/Water"
             // displacement += tex2Dlod(_DisplacementsC0Sampler, worldUV / _C0LengthScale) * lodC0;
             //displacement += tex2Dlod(_DisplacementsC0Sampler, worldUV / _C0LengthScale);
             for (int i = 0; i < _NbCascades; i++) {
-                displacement += UNITY_SAMPLE_TEX2DARRAY_LOD(_DisplacementsTextures, float3(worldUV.xy / _LengthScales[i], i), 0);
+                displacement += UNITY_SAMPLE_TEX2DARRAY_LOD(_DisplacementsTextures, float3(worldUV.xy / _WaveLengths[i], i), 0);
             }
             vertexData.vertex.xyz += mul(unity_WorldToObject, displacement);
         }
@@ -193,7 +193,7 @@ Shader "Custom/Water"
             // derivatives += tex2D(_DerivativesC0Sampler, IN.worldUV / _C0LengthScale) * IN.lodC0;
             //derivatives += tex2D(_DerivativesC0Sampler, IN.worldUV / _C0LengthScale);
             for (int i = 0; i < _NbCascades; i++) {
-                derivatives += UNITY_SAMPLE_TEX2DARRAY(_DerivativesTextures, float3(IN.worldUV / _LengthScales[i], i));
+                derivatives += UNITY_SAMPLE_TEX2DARRAY(_DerivativesTextures, float3(IN.worldUV / _WaveLengths[i], i));
             }
 
             float2 slope = float2(derivatives.x / (1 + derivatives.z), derivatives.y / (1 + derivatives.w));
