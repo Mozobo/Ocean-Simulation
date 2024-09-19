@@ -122,7 +122,7 @@ public class WaterBody : MonoBehaviour
             return v1 * s;
     }
 
-    // Generates a 2D Texture where each pixel contains a Vector4 on x and y are random numbers from -1 to 1 and z and w are 0
+    // Generates a 2D Texture where each pixel contains a Vector4, x and y are random numbers from -1 to 1 and z and w are 0
     // This texture is generated on the CPU because we don't need to generate new random noise when the ocean parameters change
     // So this texture is generated only once and at the start of the game execution
     private void GenerateRandomNoiseTexture(){
@@ -163,13 +163,7 @@ public class WaterBody : MonoBehaviour
         return CreateRenderTextureArray(arrayDepth, RenderTextureFormat.ARGBFloat, useMips);
     }
 
-    private void CalculateInitialSpectrumTextures(){
-        waveLengthsBuffer = new ComputeBuffer(cascades.Length, 4, ComputeBufferType.Default);
-        waveLengthsBuffer.SetData(waveLengths);
-        cutoffsBuffer = new ComputeBuffer(cascades.Length * 2, 4, ComputeBufferType.Default);
-        cutoffsBuffer.SetData(cutoffs);
-
-        // Calculate the initial spectrum H0(K)
+    private void InitializeInitialSpectrumComputeShader(){
         initialSpectrumComputeShader.SetInt("_TextureSize", texturesSize);
         initialSpectrumComputeShader.SetInt("_NbCascades", cascades.Length);
         initialSpectrumComputeShader.SetTexture(KERNEL_INITIAL_SPECTRUM, "_RandomNoise", randomNoiseTexture);
@@ -183,32 +177,21 @@ public class WaterBody : MonoBehaviour
         initialSpectrumComputeShader.SetFloat("_Gravity", gravity);
         initialSpectrumComputeShader.SetFloat("_Fetch", fetch);
         initialSpectrumComputeShader.SetFloat("_Depth", depth);
-        initialSpectrumComputeShader.Dispatch(KERNEL_INITIAL_SPECTRUM, texturesSize/LOCAL_WORK_GROUPS_X, texturesSize/LOCAL_WORK_GROUPS_Y, 1);
 
-        // Store, in each element on the texture, the value of the complex conjugate element
-        // Now the Initial spectrum texture stores H0(K) and H0(-k)*
         initialSpectrumComputeShader.SetTexture(KERNEL_CONJUGATED_SPECTRUM, "_InitialSpectrumTextures", initialSpectrumTextures);
-        initialSpectrumComputeShader.SetInt("_TextureSize", texturesSize);
-        initialSpectrumComputeShader.SetInt("_NbCascades", cascades.Length);
-        initialSpectrumComputeShader.Dispatch(KERNEL_CONJUGATED_SPECTRUM, texturesSize/LOCAL_WORK_GROUPS_X, texturesSize/LOCAL_WORK_GROUPS_Y, 1);
     }
 
-    public void CalculateWavesTexturesAtTime(float time) {
+    private void InitializeTimeDependentSpectrumComputeShader(){
         timeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_ConjugatedInitialSpectrumTextures", initialSpectrumTextures);
         timeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_WavesDataTextures", wavesDataTextures);
-        timeDependentSpectrumComputeShader.SetFloat("_Time", time);
         timeDependentSpectrumComputeShader.SetInt("_NbCascades", cascades.Length);
         timeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DxDzTextures", DxDzTextures);
         timeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DyDxzTextures", DyDxzTextures);
         timeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DyxDyzTextures", DyxDyzTextures);
         timeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DxxDzzTextures", DxxDzzTextures);
-        timeDependentSpectrumComputeShader.Dispatch(KERNEL_TIME_DEPENDENT_SPECTRUM, texturesSize/LOCAL_WORK_GROUPS_X, texturesSize/LOCAL_WORK_GROUPS_Y, 1);
+    }
 
-        IFFT.InverseFastFourierTransform(DxDzTextures);
-        IFFT.InverseFastFourierTransform(DyDxzTextures);
-        IFFT.InverseFastFourierTransform(DyxDyzTextures);
-        IFFT.InverseFastFourierTransform(DxxDzzTextures);
-
+    private void InitializeResultTexturesFillerComputeShader(){
         resultTexturesFillerComputeShader.SetInt("_NbCascades", cascades.Length);
         resultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_DxDzTextures", DxDzTextures);
         resultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_DyDxzTextures", DyDxzTextures);
@@ -217,6 +200,26 @@ public class WaterBody : MonoBehaviour
         resultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_DisplacementsTextures", displacementsTextures);
         resultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_DerivativesTextures", derivativesTextures);
         resultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_TurbulenceTextures", turbulenceTextures);
+    }
+
+    private void CalculateInitialSpectrumTextures(){
+        // Calculate the initial spectrum H0(K)
+        initialSpectrumComputeShader.Dispatch(KERNEL_INITIAL_SPECTRUM, texturesSize/LOCAL_WORK_GROUPS_X, texturesSize/LOCAL_WORK_GROUPS_Y, 1);
+
+        // Store, in each element on the texture, the value of the complex conjugate element
+        // Now the Initial spectrum texture stores H0(K) and H0(-k)*
+        initialSpectrumComputeShader.Dispatch(KERNEL_CONJUGATED_SPECTRUM, texturesSize/LOCAL_WORK_GROUPS_X, texturesSize/LOCAL_WORK_GROUPS_Y, 1);
+    }
+
+    public void CalculateWavesTexturesAtTime(float time) {
+        timeDependentSpectrumComputeShader.SetFloat("_Time", time);
+        timeDependentSpectrumComputeShader.Dispatch(KERNEL_TIME_DEPENDENT_SPECTRUM, texturesSize/LOCAL_WORK_GROUPS_X, texturesSize/LOCAL_WORK_GROUPS_Y, 1);
+
+        IFFT.InverseFastFourierTransform(DxDzTextures);
+        IFFT.InverseFastFourierTransform(DyDxzTextures);
+        IFFT.InverseFastFourierTransform(DyxDyzTextures);
+        IFFT.InverseFastFourierTransform(DxxDzzTextures);
+
         resultTexturesFillerComputeShader.Dispatch(KERNEL_RESULT_TEXTURES_FILLER, texturesSize/LOCAL_WORK_GROUPS_X, texturesSize/LOCAL_WORK_GROUPS_Y, 1);
 
         derivativesTextures.GenerateMips();
@@ -253,7 +256,15 @@ public class WaterBody : MonoBehaviour
             cutoffs[i*2 + 1] = cascades[i].cutoffHigh;
         }
 
+        waveLengthsBuffer = new ComputeBuffer(cascades.Length, 4, ComputeBufferType.Default);
+        waveLengthsBuffer.SetData(waveLengths);
+        cutoffsBuffer = new ComputeBuffer(cascades.Length * 2, 4, ComputeBufferType.Default);
+        cutoffsBuffer.SetData(cutoffs);
+
+        InitializeInitialSpectrumComputeShader();
         CalculateInitialSpectrumTextures();
+        InitializeTimeDependentSpectrumComputeShader();
+        InitializeResultTexturesFillerComputeShader();
 
         material.SetInt("_NbCascades", cascades.Length);
         material.SetTexture("_DisplacementsTextures", displacementsTextures);
