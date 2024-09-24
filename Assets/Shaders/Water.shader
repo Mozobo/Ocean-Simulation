@@ -8,15 +8,18 @@
 // https://www.alanzucconi.com/2017/08/30/fast-subsurface-scattering-1/
 // https://abyssal.eu/a-look-through-the-waters-surface/
 // https://docs.unity3d.com/Manual/SL-SurfaceShaders.html
-// https://docs.unity3d.com/Manual/SL-SurfaceShaderTessellation.html
 
+// Tesselation
+// https://docs.unity3d.com/Manual/SL-SurfaceShaderTessellation.html
+// https://nedmakesgames.medium.com/mastering-tessellation-shaders-and-their-many-uses-in-unity-9caeb760150e
+// https://www.youtube.com/watch?v=63ufydgBcIk
+// https://catlikecoding.com/unity/tutorials/advanced-rendering/tessellation/
 
 // Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
 
-Shader "Custom/Water"
-{
-    Properties
-    {
+Shader "Custom/Water" {
+    
+    Properties {
         [Header(General parameters)]
         _Color ("Color", Color) = (1,1,1,1)
         _Glossiness ("Glossiness", Range(0,1)) = 0
@@ -24,7 +27,8 @@ Shader "Custom/Water"
         _Shininess ("Shininess", Float) = 10
 
         [Header(Tesselation parameters)]
-        _LODScale("LOD_scale", Range(1,10)) = 0
+        _LODScale("LOD_scale", Range(1,100)) = 10 // Tesselation factor
+        _MaxTesselationDistance("Max Tesselation Distance", Range(1, 10000)) = 250
 
         [Header(Reflection parameters)]
         _ReflectionStrength ("Reflection Strength", Range(0, 1)) = 1
@@ -36,172 +40,220 @@ Shader "Custom/Water"
 		_WaterFogDensity ("Water Fog Density", Range(0, 1)) = 0.1
 
     }
-    SubShader
-    {
 
+    SubShader {
         Tags { "Queue"="Transparent" "RenderType"="Transparent"}
         LOD 200
 
         GrabPass { "_WaterBackground" }
 
-        CGPROGRAM
-        // Physically based Standard lighting model
-        #pragma surface surf Standard alpha vertex:vert finalcolor:ResetAlpha
-        // Use shader model 3.0 target, to get nicer looking lighting
-        #pragma target 3.0
+        Pass {
+            
+            CGPROGRAM
+            #pragma target 5.0 // 5.0 for tesselation
 
-        // Variables with value provided by the engine
-        sampler2D _CameraDepthTexture, _WaterBackground;
-        float4 _CameraDepthTexture_TexelSize;
+            #pragma vertex Vertex
+            #pragma hull Hull
+            #pragma domain Domain
+            #pragma fragment Fragment
+            
+            #include "UnityCG.cginc"
+            #include "UnityLightingCommon.cginc"
+            #include "Tessellation.cginc"
 
-        struct Input
-        {
-            float4 screenPos;
-            float3 viewDir;
-            float3 worldPos;
-            float2 worldUV;
-            float3 worldNormal; INTERNAL_DATA
-            //float lodC0;
-        };
+            // Variables with value provided by the engine
+            sampler2D _CameraDepthTexture, _WaterBackground;
+            float4 _CameraDepthTexture_TexelSize;
 
-        // Variables with value provided by us (Through code or through Unity's interface)
-        half _Glossiness;
-        half _Metallic;
-        float _Shininess;
-        float _WaterFogDensity;
-        float _RefractionStrength;
-        float _ReflectionStrength;
-        float _SubsurfaceScatteringIntensity;
-        fixed4 _Color;
-        fixed4 _SubsurfaceScatteringColor;
-        fixed4 _FoamColor;
-        float _LODScale;
+            struct VertexData {
+                float4 position : POSITION; // Object system
+            };
 
-        int _NbCascades;
-        UNITY_DECLARE_TEX2DARRAY(_DisplacementsTextures);
-        UNITY_DECLARE_TEX2DARRAY(_DerivativesTextures);
-        UNITY_DECLARE_TEX2DARRAY(_TurbulenceTextures);
-        uniform float _WaveLengths [5];
+            struct TessellationControlPoint {
+                float4 worldPos : INTERNALTESSPOS; // World System
+            };
 
-        float3 Refraction (float4 screenPos, float3 tangentSpaceNormal) {
-            float2 uvOffset = tangentSpaceNormal.xy * _RefractionStrength;
-            uvOffset.y *= _CameraDepthTexture_TexelSize.z * abs(_CameraDepthTexture_TexelSize.y);
-	        float2 uv = (screenPos.xy + uvOffset) / screenPos.w;
+            struct TessellationFactors {
+                float edge[3] : SV_TessFactor;
+                float inside : SV_InsideTessFactor;
+            };
 
-            #if UNITY_UV_STARTS_AT_TOP
-                if (_CameraDepthTexture_TexelSize.y < 0) {
-                    uv.y = 1 - uv.y;
-                }
-            #endif
+            struct Vertex2FragmentData {
+                float4 screenPos : SV_Position;
+                float3 viewDir : TEXCOORD0;
+                float3 worldPos : TEXCOORD1;
+                float2 worldUV : TEXCOORD2;
+            };
 
-            float backgroundDepth = LinearEyeDepth(SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, uv));
-            float surfaceDepth = UNITY_Z_0_FAR_FROM_CLIPSPACE(screenPos.z);
-            float depthDifference = backgroundDepth - surfaceDepth;
+            // Variables with value provided by us (Through code or through Unity's interface)
+            half _Glossiness;
+            half _Metallic;
+            float _Shininess;
+            float _WaterFogDensity;
+            float _RefractionStrength;
+            float _ReflectionStrength;
+            float _SubsurfaceScatteringIntensity;
+            fixed4 _Color;
+            fixed4 _SubsurfaceScatteringColor;
+            fixed4 _FoamColor;
 
-            if (depthDifference < 0) {
-                uv = screenPos.xy / screenPos.w;
+            float _LODScale;
+            float _MaxTesselationDistance;
+
+            int _NbCascades;
+            UNITY_DECLARE_TEX2DARRAY(_DisplacementsTextures);
+            UNITY_DECLARE_TEX2DARRAY(_DerivativesTextures);
+            UNITY_DECLARE_TEX2DARRAY(_TurbulenceTextures);
+            uniform float _WaveLengths [5];
+
+            float3 Refraction (float4 screenPos, float3 normal) {
+                float2 uvOffset = normal.xy * _RefractionStrength;
+                uvOffset.y *= _CameraDepthTexture_TexelSize.z * abs(_CameraDepthTexture_TexelSize.y);
+                float2 uv = (screenPos.xy + uvOffset) / screenPos.w;
+
                 #if UNITY_UV_STARTS_AT_TOP
                     if (_CameraDepthTexture_TexelSize.y < 0) {
                         uv.y = 1 - uv.y;
                     }
                 #endif
-                backgroundDepth = LinearEyeDepth(SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, uv));
-                depthDifference = backgroundDepth - surfaceDepth;
+
+                float backgroundDepth = LinearEyeDepth(SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, uv));
+                float surfaceDepth = UNITY_Z_0_FAR_FROM_CLIPSPACE(screenPos.z);
+                float depthDifference = backgroundDepth - surfaceDepth;
+
+                if (depthDifference < 0) {
+                    uv = screenPos.xy / screenPos.w;
+                    #if UNITY_UV_STARTS_AT_TOP
+                        if (_CameraDepthTexture_TexelSize.y < 0) {
+                            uv.y = 1 - uv.y;
+                        }
+                    #endif
+                    backgroundDepth = LinearEyeDepth(SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, uv));
+                    depthDifference = backgroundDepth - surfaceDepth;
+                }
+                
+                float3 backgroundColor = tex2D(_WaterBackground, uv).rgb;
+                float fogFactor = exp2(-_WaterFogDensity * depthDifference);
+                return lerp(_Color, backgroundColor, fogFactor);
+            }
+
+            float4 Reflections (float3 viewDir, float3 worldPos, float3 normal) {
+                // Reflections
+                float3 reflectionDir = reflect(-viewDir, normal);
+                float4 skyData = UNITY_SAMPLE_TEXCUBE(unity_SpecCube0, reflectionDir);
+                half3 skyColor = DecodeHDR (skyData, unity_SpecCube0_HDR);
+                half reflectionFactor = dot(viewDir, normal);
+                float3 environmentReflections = skyColor * (1 - reflectionFactor);
+
+                float attenuation;
+                float3 lightDirection;
+    
+                if (0.0 == _WorldSpaceLightPos0.w) {  // directional light?
+                    attenuation = 1.0; // no attenuation
+                    lightDirection = normalize(_WorldSpaceLightPos0.xyz);
+                } else { // point or spot light
+                    float3 vertexToLightSource = _WorldSpaceLightPos0.xyz - worldPos.xyz;
+                    float distance = length(vertexToLightSource);
+                    attenuation = 1.0 / distance; // linear attenuation 
+                    lightDirection = normalize(vertexToLightSource);
+                }
+
+                float lightAngle = dot(normal, lightDirection);
+                float3 ambientLighting = UNITY_LIGHTMODEL_AMBIENT.rgb * _Color;
+                
+                /*
+                float3 H = normalize(normal + _WorldSpaceLightPos0);
+                float ViewDotH = pow(saturate(dot(IN.viewDir, -H)), 5) * 30 * _SubsurfaceScatteringIntensity;
+                float3 subsurfaceScattering = attenuation * _SubsurfaceScatteringColor * ViewDotH ;
+                */
+
+                float3 specularReflection;
+                if (lightAngle < 0.0) { // light source on the wrong side?
+                    specularReflection = float3(0.0, 0.0, 0.0); // no specular reflection
+                } else { // light source on the right side
+                    specularReflection = attenuation * _LightColor0.rgb * pow(max(0.0, dot(reflect(-lightDirection, normal), viewDir)), _Shininess);
+                }
+
+                return float4((specularReflection + environmentReflections) * _ReflectionStrength, 1.0);
+            }
+
+            TessellationControlPoint Vertex(VertexData vertex) {
+                TessellationControlPoint output;
+                output.worldPos = mul(unity_ObjectToWorld, vertex.position);
+                return output;
+            }
+
+            // The patch constant function runs once per triangle, or "patch"
+            // It runs in parallel to the hull function
+            TessellationFactors PatchConstantFunction(InputPatch<TessellationControlPoint, 3> patch) {
+                // Calculate tessellation factors
+                float4 factors = UnityDistanceBasedTess(patch[0].worldPos, patch[1].worldPos, patch[2].worldPos, 1, _MaxTesselationDistance, _LODScale);
+                TessellationFactors f;
+                f.edge[0] = factors.x;
+                f.edge[1] = factors.y;
+                f.edge[2] = factors.z;
+                f.inside = factors.w;
+                return f;
+            }
+
+            [domain("tri")] // Signal we're inputting triangles
+            [outputcontrolpoints(3)] // Triangles have three points
+            [outputtopology("triangle_cw")] // Signal we're outputting triangles
+            [patchconstantfunc("PatchConstantFunction")] // Register the patch constant function
+            [partitioning("integer")] // Select a partitioning mode: integer, fractional_odd, fractional_even or pow2
+            TessellationControlPoint Hull(InputPatch<TessellationControlPoint, 3> patch, uint id : SV_OutputControlPointID) {
+                return patch[id];
+            }
+
+            // Call this macro to interpolate between a triangle patch, passing the field name
+            #define BARYCENTRIC_INTERPOLATE(fieldName) \
+                    patch[0].fieldName * barycentricCoordinates.x + \
+                    patch[1].fieldName * barycentricCoordinates.y + \
+                    patch[2].fieldName * barycentricCoordinates.z
+
+            [domain("tri")] // Signal we're inputting triangles
+            // Params:
+            // The output of the patch constant function
+            // The Input triangle
+            // The barycentric coordinates of the vertex on the triangle
+            Vertex2FragmentData Domain(TessellationFactors factors, OutputPatch<TessellationControlPoint, 3> patch, float3 barycentricCoordinates : SV_DomainLocation) {
+                float4 worldPosition = BARYCENTRIC_INTERPOLATE(worldPos);
+
+                Vertex2FragmentData output;
+                output.worldPos = worldPosition;
+                output.worldUV = output.worldPos.xz;
+
+                float3 displacement = 0;
+                for (int i = 0; i < _NbCascades; i++) {
+                    displacement += UNITY_SAMPLE_TEX2DARRAY_LOD(_DisplacementsTextures, float3(output.worldUV / _WaveLengths[i], i), 0);
+                }
+                output.worldPos.xyz += mul(unity_ObjectToWorld, displacement);
+
+                output.screenPos = UnityObjectToClipPos(output.worldPos);
+                output.viewDir = normalize(_WorldSpaceCameraPos - output.worldPos);
+
+                return output;
+            }
+
+            fixed4 Fragment(Vertex2FragmentData input) : SV_Target {
+
+                float4 derivatives = 0;
+                for (int i = 0; i < _NbCascades; i++) {
+                    derivatives += UNITY_SAMPLE_TEX2DARRAY(_DerivativesTextures, float3(input.worldUV / _WaveLengths[i], i));
+                }
+
+                float2 slope = float2(derivatives.x / (1 + derivatives.z), derivatives.y / (1 + derivatives.w));
+                float3 objectNormal = normalize(float3(-slope.x, 1, -slope.y));
+
+                float3 worldNormal = UnityObjectToWorldNormal(objectNormal);
+
+                float3 emission = Refraction(input.screenPos, worldNormal) + Reflections(input.viewDir, input.worldPos, worldNormal);
+
+                return fixed4(emission, 1.0f);
+                //return fixed4(_Color);
             }
             
-            float3 backgroundColor = tex2D(_WaterBackground, uv).rgb;
-            float fogFactor = exp2(-_WaterFogDensity * depthDifference);
-	        return lerp(_Color, backgroundColor, fogFactor);
+            ENDCG
         }
-
-        float4 Reflections (Input IN, float3 surfaceNormal) {
-            // Reflections
-            float3 reflectionDir = reflect(-IN.viewDir, surfaceNormal);
-            float4 skyData = UNITY_SAMPLE_TEXCUBE(unity_SpecCube0, reflectionDir);
-            half3 skyColor = DecodeHDR (skyData, unity_SpecCube0_HDR);
-            half reflectionFactor = dot(IN.viewDir, surfaceNormal);
-            float3 environmentReflections = skyColor * (1 - reflectionFactor);
-
-            float attenuation;
-            float3 lightDirection;
- 
-            if (0.0 == _WorldSpaceLightPos0.w) {  // directional light?
-               attenuation = 1.0; // no attenuation
-               lightDirection = normalize(_WorldSpaceLightPos0.xyz);
-            } else { // point or spot light
-               float3 vertexToLightSource = _WorldSpaceLightPos0.xyz - IN.worldPos.xyz;
-               float distance = length(vertexToLightSource);
-               attenuation = 1.0 / distance; // linear attenuation 
-               lightDirection = normalize(vertexToLightSource);
-            }
-
-            float lightAngle = dot(surfaceNormal, lightDirection);
-            float3 ambientLighting = UNITY_LIGHTMODEL_AMBIENT.rgb * _Color;
-            
-            /*
-            float3 H = normalize(surfaceNormal + _WorldSpaceLightPos0);
-            float ViewDotH = pow(saturate(dot(IN.viewDir, -H)), 5) * 30 * _SubsurfaceScatteringIntensity;
-            float3 subsurfaceScattering = attenuation * _SubsurfaceScatteringColor * ViewDotH ;
-            */
-
-            float3 specularReflection;
-            if (lightAngle < 0.0) { // light source on the wrong side?
-               specularReflection = float3(0.0, 0.0, 0.0); // no specular reflection
-            } else { // light source on the right side
-               specularReflection = attenuation * _LightColor0.rgb * pow(max(0.0, dot(reflect(-lightDirection, surfaceNormal), IN.viewDir)), _Shininess);
-            }
-
-            return float4((specularReflection + environmentReflections) * _ReflectionStrength, 1.0);
-        }
-
-        void ResetAlpha (Input IN, SurfaceOutputStandard o, inout fixed4 color) {
-			color.a = 1;
-		}
-
-        void vert(inout appdata_full vertexData, out Input o) {
-            UNITY_INITIALIZE_OUTPUT(Input, o);
-            float3 worldPos = mul(unity_ObjectToWorld, vertexData.vertex);
-            float4 worldUV = float4(worldPos.xz, 0, 0);
-            o.worldUV = worldUV.xy;
-
-            /*float viewDist = length(_WorldSpaceCameraPos.xyz - worldPos);
-            float lodC0 = min(_LODScale * _C0LengthScale / viewDist, 1);
-            o.lodC0 = lodC0;*/
-
-            float3 displacement = 0;
-            // displacement += tex2Dlod(_DisplacementsC0Sampler, worldUV / _C0LengthScale) * lodC0;
-            //displacement += tex2Dlod(_DisplacementsC0Sampler, worldUV / _C0LengthScale);
-            for (int i = 0; i < _NbCascades; i++) {
-                displacement += UNITY_SAMPLE_TEX2DARRAY_LOD(_DisplacementsTextures, float3(worldUV.xy / _WaveLengths[i], i), 0);
-            }
-            vertexData.vertex.xyz += mul(unity_WorldToObject, displacement);
-        }
-
-        float3 WorldToTangentNormalVector(Input IN, float3 normal) {
-            float3 t2w0 = WorldNormalVector(IN, float3(1, 0, 0));
-            float3 t2w1 = WorldNormalVector(IN, float3(0, 1, 0));
-            float3 t2w2 = WorldNormalVector(IN, float3(0, 0, 1));
-            float3x3 t2w = float3x3(t2w0, t2w1, t2w2);
-            return normalize(mul(t2w, normal));
-        }
-
-        void surf (Input IN, inout SurfaceOutputStandard o) {
-            o.Smoothness = _Glossiness;
-            o.Metallic = _Metallic;
-
-            float4 derivatives = 0;
-            // derivatives += tex2D(_DerivativesC0Sampler, IN.worldUV / _C0LengthScale) * IN.lodC0;
-            //derivatives += tex2D(_DerivativesC0Sampler, IN.worldUV / _C0LengthScale);
-            for (int i = 0; i < _NbCascades; i++) {
-                derivatives += UNITY_SAMPLE_TEX2DARRAY(_DerivativesTextures, float3(IN.worldUV / _WaveLengths[i], i));
-            }
-
-            float2 slope = float2(derivatives.x / (1 + derivatives.z), derivatives.y / (1 + derivatives.w));
-            float3 worldNormal = normalize(float3(-slope.x, 1, -slope.y));
-            o.Normal = WorldToTangentNormalVector(IN, worldNormal);
-
-            o.Emission = Refraction(IN.screenPos, o.Normal) + Reflections(IN, o.Normal);
-        }
-        ENDCG
     }
 }
