@@ -8,6 +8,7 @@
 // https://www.alanzucconi.com/2017/08/30/fast-subsurface-scattering-1/
 // https://abyssal.eu/a-look-through-the-waters-surface/
 // https://docs.unity3d.com/Manual/SL-SurfaceShaders.html
+// https://docs.unity3d.com/Manual/SL-BuiltinFunctions.html
 
 // Tesselation
 // https://docs.unity3d.com/Manual/SL-SurfaceShaderTessellation.html
@@ -83,6 +84,7 @@ Shader "Custom/Water" {
                 float3 viewDir : TEXCOORD0;
                 float3 worldPos : TEXCOORD1;
                 float2 worldUV : TEXCOORD2;
+                float4 grabPos: TEXCOORD3; // texture coordinate for sampling a GrabPass texure
             };
 
             // Variables with value provided by us (Through code or through Unity's interface)
@@ -106,10 +108,10 @@ Shader "Custom/Water" {
             UNITY_DECLARE_TEX2DARRAY(_TurbulenceTextures);
             uniform float _WaveLengths [5];
 
-            float3 Refraction (float4 screenPos, float3 normal) {
-                float2 uvOffset = normal.xy * _RefractionStrength;
+            float3 Refraction (float4 grabPos, float3 worldNormal) {
+                float2 uvOffset = worldNormal.xy * _RefractionStrength;
                 uvOffset.y *= _CameraDepthTexture_TexelSize.z * abs(_CameraDepthTexture_TexelSize.y);
-                float2 uv = (screenPos.xy + uvOffset) / screenPos.w;
+                float2 uv = (grabPos.xy + uvOffset) / grabPos.w;
 
                 #if UNITY_UV_STARTS_AT_TOP
                     if (_CameraDepthTexture_TexelSize.y < 0) {
@@ -118,11 +120,11 @@ Shader "Custom/Water" {
                 #endif
 
                 float backgroundDepth = LinearEyeDepth(SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, uv));
-                float surfaceDepth = UNITY_Z_0_FAR_FROM_CLIPSPACE(screenPos.z);
+                float surfaceDepth = UNITY_Z_0_FAR_FROM_CLIPSPACE(grabPos.z);
                 float depthDifference = backgroundDepth - surfaceDepth;
 
                 if (depthDifference < 0) {
-                    uv = screenPos.xy / screenPos.w;
+                    uv = grabPos.xy / grabPos.w;
                     #if UNITY_UV_STARTS_AT_TOP
                         if (_CameraDepthTexture_TexelSize.y < 0) {
                             uv.y = 1 - uv.y;
@@ -217,26 +219,24 @@ Shader "Custom/Water" {
             // The Input triangle
             // The barycentric coordinates of the vertex on the triangle
             Vertex2FragmentData Domain(TessellationFactors factors, OutputPatch<TessellationControlPoint, 3> patch, float3 barycentricCoordinates : SV_DomainLocation) {
-                float4 worldPosition = BARYCENTRIC_INTERPOLATE(worldPos);
-
                 Vertex2FragmentData output;
-                output.worldPos = worldPosition;
+                output.worldPos = BARYCENTRIC_INTERPOLATE(worldPos);
                 output.worldUV = output.worldPos.xz;
 
                 float3 displacement = 0;
                 for (int i = 0; i < _NbCascades; i++) {
                     displacement += UNITY_SAMPLE_TEX2DARRAY_LOD(_DisplacementsTextures, float3(output.worldUV / _WaveLengths[i], i), 0);
                 }
-                output.worldPos.xyz += mul(unity_ObjectToWorld, displacement);
+                output.worldPos += mul(unity_ObjectToWorld, displacement);;
 
                 output.screenPos = UnityObjectToClipPos(output.worldPos);
+                output.grabPos = ComputeGrabScreenPos(output.screenPos);
                 output.viewDir = normalize(_WorldSpaceCameraPos - output.worldPos);
 
                 return output;
             }
 
             fixed4 Fragment(Vertex2FragmentData input) : SV_Target {
-
                 float4 derivatives = 0;
                 for (int i = 0; i < _NbCascades; i++) {
                     derivatives += UNITY_SAMPLE_TEX2DARRAY(_DerivativesTextures, float3(input.worldUV / _WaveLengths[i], i));
@@ -244,11 +244,11 @@ Shader "Custom/Water" {
 
                 float2 slope = float2(derivatives.x / (1 + derivatives.z), derivatives.y / (1 + derivatives.w));
                 float3 objectNormal = normalize(float3(-slope.x, 1, -slope.y));
-
                 float3 worldNormal = UnityObjectToWorldNormal(objectNormal);
 
-                float3 emission = Refraction(input.screenPos, worldNormal) + Reflections(input.viewDir, input.worldPos, worldNormal);
-
+                //float3 emission = Refraction(input.screenPos, worldNormal) + Reflections(input.viewDir, input.worldPos, worldNormal);
+                float3 emission = Refraction(input.grabPos, worldNormal);
+                //float3 emission = Reflections(input.viewDir, input.worldPos, worldNormal);
                 return fixed4(emission, 1.0f);
                 //return fixed4(_Color);
             }
