@@ -63,6 +63,8 @@ Shader "Custom/Water" {
 
             #define M_PI 3.1415926535897932384626433832795f
             #define FLT_MIN 1.175494351e-38
+            #define WATER_REFRACTION_INDEX 1.333f
+            #define AIR_REFRACTION_INDEX 1
 
             // Variables with value provided by the engine
             sampler2D _CameraDepthTexture, _WaterBackground;
@@ -247,7 +249,9 @@ Shader "Custom/Water" {
                 float3 objectNormal = normalize(float3(-slope.x, 1, -slope.y));
                 float3 worldNormal = UnityObjectToWorldNormal(objectNormal);
 
-                float fresnel = pow(1.0 - saturate(dot(input.viewDir, worldNormal)), 5.0);
+                float R0 = pow((AIR_REFRACTION_INDEX - WATER_REFRACTION_INDEX) / (AIR_REFRACTION_INDEX + WATER_REFRACTION_INDEX), 2);
+                float3 halfwayVec = normalize(normalize(_WorldSpaceLightPos0) + input.viewDir);
+                float fresnel = R0 + (1 - R0) * pow(1.0 - saturate(dot(halfwayVec, input.viewDir)), 5);
 
                 float3 refraction = Refraction(input.grabPos, worldNormal);
                 float3 reflection = Reflections(input.viewDir, input.worldPos, worldNormal);
