@@ -9,6 +9,8 @@
 // https://abyssal.eu/a-look-through-the-waters-surface/
 // https://docs.unity3d.com/Manual/SL-SurfaceShaders.html
 // https://docs.unity3d.com/Manual/SL-BuiltinFunctions.html
+// https://rtarun9.github.io/blogs/physically_based_rendering/#what-is-physically-based-rendering
+// https://en.wikipedia.org/wiki/Schlick's_approximation
 
 // Tesselation
 // https://docs.unity3d.com/Manual/SL-SurfaceShaderTessellation.html
@@ -23,9 +25,7 @@ Shader "Custom/Water" {
     Properties {
         [Header(General parameters)]
         _Color ("Color", Color) = (1,1,1,1)
-        _Glossiness ("Glossiness", Range(0,1)) = 0
-        _Metallic ("Metallic", Range(0,1)) = 0.0
-        _Shininess ("Shininess", Float) = 10
+        _Roughness ("Roughness", Range(0,1)) = 0.5
 
         [Header(Tesselation parameters)]
         _LODScale("LOD_scale", Range(1,100)) = 10 // Tesselation factor
@@ -33,7 +33,6 @@ Shader "Custom/Water" {
 
         [Header(Reflection parameters)]
         _ReflectionStrength ("Reflection Strength", Range(0, 1)) = 1
-        _SubsurfaceScatteringColor ("Subsurface Scattering Color", Color) = (1,1,1,1)
         _SubsurfaceScatteringIntensity ("Subsurface Scattering Strength", Range(0, 1)) = 0.25
 
         [Header(Refraction parameters)]
@@ -62,6 +61,9 @@ Shader "Custom/Water" {
             #include "UnityLightingCommon.cginc"
             #include "Tessellation.cginc"
 
+            #define M_PI 3.1415926535897932384626433832795f
+            #define FLT_MIN 1.175494351e-38
+
             // Variables with value provided by the engine
             sampler2D _CameraDepthTexture, _WaterBackground;
             float4 _CameraDepthTexture_TexelSize;
@@ -88,15 +90,12 @@ Shader "Custom/Water" {
             };
 
             // Variables with value provided by us (Through code or through Unity's interface)
-            half _Glossiness;
-            half _Metallic;
-            float _Shininess;
+            half _Roughness;
             float _WaterFogDensity;
             float _RefractionStrength;
             float _ReflectionStrength;
             float _SubsurfaceScatteringIntensity;
             fixed4 _Color;
-            fixed4 _SubsurfaceScatteringColor;
             fixed4 _FoamColor;
 
             float _LODScale;
@@ -139,44 +138,46 @@ Shader "Custom/Water" {
                 return lerp(_Color, backgroundColor, fogFactor);
             }
 
-            float4 Reflections (float3 viewDir, float3 worldPos, float3 normal) {
-                // Reflections
+            float NormalDistribution(float3 normal, float3 viewDir) {
+                float alpha = _Roughness * _Roughness;
+                float alphaSquare = alpha * alpha;
+
+                float3 halfwayDir = normalize(_WorldSpaceLightPos0 + viewDir);
+
+                float nDotH = saturate(dot(normal, halfwayDir));
+                
+                return alphaSquare / (max(M_PI * pow((nDotH * nDotH * (alphaSquare - 1.0f) + 1.0f), 2.0f), FLT_MIN));
+            }
+
+            float SchlickBeckmannGS(float3 normal, float3 x) {
+                float k = _Roughness / 2.0f;
+                float nDotX = saturate(dot(normal, x));
+                
+                return nDotX / (max((nDotX * (1.0f - k) + k), FLT_MIN));
+            }
+
+            float GeometryShadowingFunction(float3 normal, float3 viewDir, float3 lightDir) {
+                return SchlickBeckmannGS(normal, viewDir) * SchlickBeckmannGS(normal, lightDir);    
+            }
+
+            float3 Reflections (float3 viewDir, float3 worldPos, float3 normal) {
                 float3 reflectionDir = reflect(-viewDir, normal);
                 float4 skyData = UNITY_SAMPLE_TEXCUBE(unity_SpecCube0, reflectionDir);
-                half3 skyColor = DecodeHDR (skyData, unity_SpecCube0_HDR);
-                half reflectionFactor = dot(viewDir, normal);
-                float3 environmentReflections = skyColor * (1 - reflectionFactor);
+                half3 environment = DecodeHDR(skyData, unity_SpecCube0_HDR);
 
-                float attenuation;
-                float3 lightDirection;
-    
-                if (0.0 == _WorldSpaceLightPos0.w) {  // directional light?
-                    attenuation = 1.0; // no attenuation
-                    lightDirection = normalize(_WorldSpaceLightPos0.xyz);
-                } else { // point or spot light
-                    float3 vertexToLightSource = _WorldSpaceLightPos0.xyz - worldPos.xyz;
-                    float distance = length(vertexToLightSource);
-                    attenuation = 1.0 / distance; // linear attenuation 
-                    lightDirection = normalize(vertexToLightSource);
-                }
+                float3 lightDirection = normalize(_WorldSpaceLightPos0.xyz);
 
-                float lightAngle = dot(normal, lightDirection);
-                float3 ambientLighting = UNITY_LIGHTMODEL_AMBIENT.rgb * _Color;
-                
-                /*
-                float3 H = normalize(normal + _WorldSpaceLightPos0);
-                float ViewDotH = pow(saturate(dot(IN.viewDir, -H)), 5) * 30 * _SubsurfaceScatteringIntensity;
-                float3 subsurfaceScattering = attenuation * _SubsurfaceScatteringColor * ViewDotH ;
-                */
+                float3 H = normalize(worldPos.y + lightDirection);
+                float ViewDotH = pow(saturate(dot(viewDir, -H)), 5) * 30 * _SubsurfaceScatteringIntensity;
+                float3 scatter = _Color * _LightColor0 * ViewDotH;
 
-                float3 specularReflection;
-                if (lightAngle < 0.0) { // light source on the wrong side?
-                    specularReflection = float3(0.0, 0.0, 0.0); // no specular reflection
-                } else { // light source on the right side
-                    specularReflection = attenuation * _LightColor0.rgb * pow(max(0.0, dot(reflect(-lightDirection, normal), viewDir)), _Shininess);
-                }
+                float normalDistribution = NormalDistribution(normal, viewDir);
+                float geometryFunction = GeometryShadowingFunction(normal, viewDir, lightDirection);
 
-                return float4((specularReflection + environmentReflections) * _ReflectionStrength, 1.0);
+                // https://rtarun9.github.io/blogs/physically_based_rendering/#what-is-physically-based-rendering
+                float3 specular = _LightColor0 * (normalDistribution * geometryFunction) / max(4.0f * saturate(dot(viewDir, normal)) * saturate(dot(lightDirection, normal)), FLT_MIN);
+
+                return (environment + scatter + specular) * _ReflectionStrength;
             }
 
             TessellationControlPoint Vertex(VertexData vertex) {
@@ -227,7 +228,7 @@ Shader "Custom/Water" {
                 for (int i = 0; i < _NbCascades; i++) {
                     displacement += UNITY_SAMPLE_TEX2DARRAY_LOD(_DisplacementsTextures, float3(output.worldUV / _WaveLengths[i], i), 0);
                 }
-                output.worldPos += mul(unity_ObjectToWorld, displacement);;
+                output.worldPos += mul(unity_ObjectToWorld, displacement);
 
                 output.screenPos = UnityObjectToClipPos(output.worldPos);
                 output.grabPos = ComputeGrabScreenPos(output.screenPos);
@@ -246,11 +247,13 @@ Shader "Custom/Water" {
                 float3 objectNormal = normalize(float3(-slope.x, 1, -slope.y));
                 float3 worldNormal = UnityObjectToWorldNormal(objectNormal);
 
-                //float3 emission = Refraction(input.screenPos, worldNormal) + Reflections(input.viewDir, input.worldPos, worldNormal);
-                float3 emission = Refraction(input.grabPos, worldNormal);
-                //float3 emission = Reflections(input.viewDir, input.worldPos, worldNormal);
+                float fresnel = pow(1.0 - saturate(dot(input.viewDir, worldNormal)), 5.0);
+
+                float3 refraction = Refraction(input.grabPos, worldNormal);
+                float3 reflection = Reflections(input.viewDir, input.worldPos, worldNormal);
+                float3 emission = lerp(refraction, reflection, fresnel);
+
                 return fixed4(emission, 1.0f);
-                //return fixed4(_Color);
             }
             
             ENDCG
