@@ -9,7 +9,7 @@ public class WaterBody : MonoBehaviour
 {
     // Plane variables
     [SerializeField, Range(1, 10000)]
-    public int planeSize = 2;
+    public int planeSize = 1000;
     // Reduces the number of vertices used to create a mesh of given size
     [SerializeField, Range(1, 100)]
     public int trianglesSize = 2;
@@ -284,16 +284,5 @@ public class WaterBody : MonoBehaviour
         cutoffsBuffer.Release();
         cutoffsBuffer = null;
 	}
-
-    // Uncomment this function to visualize vertices
-    /*private void OnDrawGizmos () {
-        if (vertices == null) {
-			return;
-		}
-		Gizmos.color = Color.black;
-		for (int i = 0; i < vertices.Length; i++) {
-			Gizmos.DrawSphere(vertices[i], 0.1f);
-		}
-	}*/
     
 }

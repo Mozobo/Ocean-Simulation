@@ -45,8 +45,6 @@ Shader "Custom/Water" {
         Tags { "Queue"="Transparent" "RenderType"="Transparent"}
         LOD 200
 
-        GrabPass { "_WaterBackground" }
-
         Pass {
             
             CGPROGRAM
@@ -67,8 +65,8 @@ Shader "Custom/Water" {
             #define AIR_REFRACTION_INDEX 1
 
             // Variables with value provided by the engine
-            sampler2D _CameraDepthTexture, _WaterBackground;
-            float4 _CameraDepthTexture_TexelSize;
+            sampler2D _CameraOpaqueTexture, _CameraDepthTexture;
+            float4 _CameraOpaqueTexture_TexelSize;
 
             struct VertexData {
                 float4 position : POSITION; // Object system
@@ -108,14 +106,15 @@ Shader "Custom/Water" {
             UNITY_DECLARE_TEX2DARRAY(_DerivativesTextures);
             UNITY_DECLARE_TEX2DARRAY(_TurbulenceTextures);
             uniform float _WaveLengths [5];
-
+            
+            // For correct refractions, in the URP pipeline asset you have to enable both 'Depth Texture' and 'Opaque Texture'
             float3 Refraction (float4 grabPos, float3 worldNormal) {
                 float2 uvOffset = worldNormal.xy * _RefractionStrength;
-                uvOffset.y *= _CameraDepthTexture_TexelSize.z * abs(_CameraDepthTexture_TexelSize.y);
+                uvOffset.y *= _CameraOpaqueTexture_TexelSize.z * abs(_CameraOpaqueTexture_TexelSize.y);
                 float2 uv = (grabPos.xy + uvOffset) / grabPos.w;
 
                 #if UNITY_UV_STARTS_AT_TOP
-                    if (_CameraDepthTexture_TexelSize.y < 0) {
+                    if (_CameraOpaqueTexture_TexelSize.y < 0) {
                         uv.y = 1 - uv.y;
                     }
                 #endif
@@ -127,7 +126,7 @@ Shader "Custom/Water" {
                 if (depthDifference < 0) {
                     uv = grabPos.xy / grabPos.w;
                     #if UNITY_UV_STARTS_AT_TOP
-                        if (_CameraDepthTexture_TexelSize.y < 0) {
+                        if (_CameraOpaqueTexture_TexelSize.y < 0) {
                             uv.y = 1 - uv.y;
                         }
                     #endif
@@ -135,7 +134,7 @@ Shader "Custom/Water" {
                     depthDifference = backgroundDepth - surfaceDepth;
                 }
                 
-                float3 backgroundColor = tex2D(_WaterBackground, uv).rgb;
+                float3 backgroundColor = tex2D(_CameraOpaqueTexture, uv).rgb;
                 float fogFactor = exp2(-_WaterFogDensity * depthDifference);
                 return lerp(_Color, backgroundColor, fogFactor);
             }
@@ -163,8 +162,7 @@ Shader "Custom/Water" {
             }
 
             float3 Reflections (float3 viewDir, float3 worldPos, float3 normal) {
-                float3 reflectionDir = reflect(-viewDir, normal);
-                float4 skyData = UNITY_SAMPLE_TEXCUBE(unity_SpecCube0, reflectionDir);
+                float4 skyData = UNITY_SAMPLE_TEXCUBE(unity_SpecCube0, viewDir);
                 half3 environment = DecodeHDR(skyData, unity_SpecCube0_HDR);
 
                 float3 lightDirection = normalize(_WorldSpaceLightPos0.xyz);
@@ -250,8 +248,7 @@ Shader "Custom/Water" {
                 float3 worldNormal = UnityObjectToWorldNormal(objectNormal);
 
                 float R0 = pow((AIR_REFRACTION_INDEX - WATER_REFRACTION_INDEX) / (AIR_REFRACTION_INDEX + WATER_REFRACTION_INDEX), 2);
-                float3 halfwayVec = normalize(normalize(_WorldSpaceLightPos0) + input.viewDir);
-                float fresnel = R0 + (1 - R0) * pow(1.0 - saturate(dot(halfwayVec, input.viewDir)), 5);
+                float fresnel = R0 + (1 - R0) * pow(1.0 - saturate(dot(worldNormal, input.viewDir)), 5);
 
                 float3 refraction = Refraction(input.grabPos, worldNormal);
                 float3 reflection = Reflections(input.viewDir, input.worldPos, worldNormal);
