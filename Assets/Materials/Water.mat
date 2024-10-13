@@ -14,7 +14,7 @@ Material:
   m_ValidKeywords: []
   m_InvalidKeywords: []
   m_LightmapFlags: 4
-  m_EnableInstancingVariants: 0
+  m_EnableInstancingVariants: 1
   m_DoubleSidedGI: 0
   m_CustomRenderQueue: -1
   stringTagMap: {}
@@ -22,144 +22,16 @@ Material:
   m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
-    m_TexEnvs:
-    - _BumpMap:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _DerivativesC0Sampler:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _DerivativesC1Sampler:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _DerivativesTextures:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _DetailAlbedoMap:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _DetailMask:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _DetailNormalMap:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _DisplacementsC0Sampler:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _DisplacementsC1Sampler:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _DisplacementsTextures:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _EmissionMap:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _FoamTexture:
-        m_Texture: {fileID: 2800000, guid: 9e0c51c56ec47604db2c732017091a43, type: 3}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _MainTex:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 10, y: 10}
-        m_Offset: {x: 0, y: 0}
-    - _MetallicGlossMap:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _OcclusionMap:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _ParallaxMap:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _TurbulenceC0Sampler:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _TurbulenceC1Sampler:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _TurbulenceTextures:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    m_Ints:
-    - _MajorDirectionX: 1
-    - _MajorDirectionZ: 1
-    - _WaveNumber: 1
+    m_TexEnvs: []
+    m_Ints: []
     m_Floats:
-    - _Alpha: 1
-    - _Amplitude: 0.7
-    - _Angularfrequency: 60
-    - _BumpScale: 1
-    - _ColorMask: 15
-    - _Cutoff: 0.5
-    - _DetailNormalMapScale: 1
-    - _DstBlend: 0
-    - _GlossMapScale: 1
-    - _Glossiness: 0.5
-    - _GlossyReflections: 1
-    - _Gravity: 9.81
-    - _Initialphase: 10
-    - _LODScale: 10
-    - _LOD_scale: 1
-    - _MaxDistanceTesselation: 10.6
-    - _Metallic: 0
-    - _MinDistanceTesselation: 10.4
-    - _Mode: 0
-    - _OcclusionStrength: 1
-    - _Parallax: 0.0206
+    - _LODScale: 10.5
+    - _MaxTesselationDistance: 3000
     - _ReflectionStrength: 1
-    - _RefractionStrength: 0.491
-    - _Shininess: 200
-    - _SmoothnessTextureChannel: 0
-    - _SpecularHighlights: 1
-    - _SrcBlend: 1
-    - _Steepness: 0.243
-    - _Stencil: 0
-    - _StencilComp: 8
-    - _StencilOp: 0
-    - _StencilReadMask: 255
-    - _StencilWriteMask: 255
-    - _SubsurfaceScatteringIntensity: 1
-    - _Tess: 1
-    - _Tesselation: 3.3
-    - _UVSec: 0
-    - _UseUIAlphaClip: 0
-    - _WaterFogDensity: 0.228
-    - _WaveASpeed: 2
-    - _WaveBSpeed: 0.31
-    - _WaveCSpeed: 2.1
-    - _Wavelength: 6
-    - _Wavenumber: 0.5
-    - _Wavespeed: 20
-    - _WindSpeed: 1
-    - _ZWrite: 1
+    - _RefractionStrength: 1
+    - _Roughness: 0.5
+    - _SubsurfaceScatteringIntensity: 0.25
+    - _WaterFogDensity: 0.132
     m_Colors:
-    - _Color: {r: 0.0146849435, g: 0.116186894, b: 0.28301883, a: 1}
-    - _Direction: {r: 1, g: 1, b: 0, a: 0}
-    - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
-    - _FoamColor: {r: 1, g: 1, b: 1, a: 0}
-    - _SpecColor: {r: 1, g: 1, b: 1, a: 1}
-    - _SubsurfaceScatteringColor: {r: 0.8773585, g: 0.037246335, b: 0.037246335, a: 1}
-    - _WaterFogColor: {r: 0.3019608, g: 0.85882354, b: 0.7647059, a: 0}
-    - _WaveA: {r: 1, g: 1, b: 0.25, a: 20}
-    - _WaveB: {r: 1, g: 0.6, b: 0.25, a: 13.3}
-    - _WaveC: {r: 1, g: 1.3, b: 0.25, a: 11.2}
+    - _Color: {r: 0, g: 0.20880048, b: 0.4433962, a: 1}
   m_BuildTextureStacks: []
