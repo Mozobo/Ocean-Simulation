@@ -42,12 +42,12 @@ Shader "Custom/Water" {
     }
 
     SubShader {
-        Tags { "Queue"="Transparent" "RenderType"="Transparent"}
+        Tags { "Queue"="Transparent" "RenderType"="Transparent" "RenderPipeline"="UniversalRenderPipeline"}
         LOD 200
 
         Pass {
             
-            CGPROGRAM
+            HLSLPROGRAM
             #pragma target 5.0 // 5.0 for tesselation
 
             #pragma vertex Vertex
@@ -55,17 +55,20 @@ Shader "Custom/Water" {
             #pragma domain Domain
             #pragma fragment Fragment
             
-            #include "UnityCG.cginc"
-            #include "UnityLightingCommon.cginc"
-            #include "Tessellation.cginc"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
 
             #define M_PI 3.1415926535897932384626433832795f
             #define FLT_MIN 1.175494351e-38
             #define WATER_REFRACTION_INDEX 1.333f
-            #define AIR_REFRACTION_INDEX 1
+            #define AIR_REFRACTION_INDEX 1.0f
 
             // Variables with value provided by the engine
-            sampler2D _CameraOpaqueTexture, _CameraDepthTexture;
+            TEXTURE2D(_CameraOpaqueTexture);
+            SAMPLER(sampler_CameraOpaqueTexture);
+            TEXTURE2D(_CameraDepthTexture);
+            SAMPLER(sampler_CameraDepthTexture);
             float4 _CameraOpaqueTexture_TexelSize;
 
             struct VertexData {
@@ -95,16 +98,19 @@ Shader "Custom/Water" {
             float _RefractionStrength;
             float _ReflectionStrength;
             float _SubsurfaceScatteringIntensity;
-            fixed4 _Color;
-            fixed4 _FoamColor;
+            float4 _Color;
+            float4 _FoamColor;
 
             float _LODScale;
             float _MaxTesselationDistance;
 
             int _NbCascades;
-            UNITY_DECLARE_TEX2DARRAY(_DisplacementsTextures);
-            UNITY_DECLARE_TEX2DARRAY(_DerivativesTextures);
-            UNITY_DECLARE_TEX2DARRAY(_TurbulenceTextures);
+            TEXTURE2D_ARRAY(_DisplacementsTextures);
+            SAMPLER(sampler_DisplacementsTextures);
+            TEXTURE2D_ARRAY(_DerivativesTextures);
+            SAMPLER(sampler_DerivativesTextures);
+            TEXTURE2D_ARRAY(_TurbulenceTextures);
+            SAMPLER(sampler_TurbulenceTextures);
             uniform float _WaveLengths [5];
             
             // For correct refractions, in the URP pipeline asset you have to enable both 'Depth Texture' and 'Opaque Texture'
@@ -119,7 +125,7 @@ Shader "Custom/Water" {
                     }
                 #endif
 
-                float backgroundDepth = LinearEyeDepth(SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, uv));
+                float backgroundDepth = LinearEyeDepth(SAMPLE_TEXTURE2D(_CameraDepthTexture, sampler_CameraDepthTexture, uv).r, _ZBufferParams);
                 float surfaceDepth = UNITY_Z_0_FAR_FROM_CLIPSPACE(grabPos.z);
                 float depthDifference = backgroundDepth - surfaceDepth;
 
@@ -130,11 +136,11 @@ Shader "Custom/Water" {
                             uv.y = 1 - uv.y;
                         }
                     #endif
-                    backgroundDepth = LinearEyeDepth(SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, uv));
+                    backgroundDepth = LinearEyeDepth(SAMPLE_TEXTURE2D(_CameraDepthTexture, sampler_CameraDepthTexture, uv).r, _ZBufferParams);
                     depthDifference = backgroundDepth - surfaceDepth;
                 }
                 
-                float3 backgroundColor = tex2D(_CameraOpaqueTexture, uv).rgb;
+                float3 backgroundColor = SAMPLE_TEXTURE2D(_CameraOpaqueTexture, sampler_CameraOpaqueTexture, uv).rgb;
                 float fogFactor = exp2(-_WaterFogDensity * depthDifference);
                 return lerp(_Color, backgroundColor, fogFactor);
             }
@@ -143,7 +149,7 @@ Shader "Custom/Water" {
                 float alpha = _Roughness * _Roughness;
                 float alphaSquare = alpha * alpha;
 
-                float3 halfwayDir = normalize(_WorldSpaceLightPos0 + viewDir);
+                float3 halfwayDir = normalize(_MainLightPosition + viewDir);
 
                 float nDotH = saturate(dot(normal, halfwayDir));
                 
@@ -162,20 +168,20 @@ Shader "Custom/Water" {
             }
 
             float3 Reflections (float3 viewDir, float3 worldPos, float3 normal) {
-                float4 skyData = UNITY_SAMPLE_TEXCUBE(unity_SpecCube0, viewDir);
-                half3 environment = DecodeHDR(skyData, unity_SpecCube0_HDR);
+                float4 skyData = SAMPLE_TEXTURECUBE_LOD(unity_SpecCube0, samplerunity_SpecCube0, viewDir, 0.0f);
+                half3 environment = skyData.rgb;
 
-                float3 lightDirection = normalize(_WorldSpaceLightPos0.xyz);
+                float3 lightDirection = normalize(_MainLightPosition.xyz);
 
                 float3 H = normalize(worldPos.y + lightDirection);
                 float ViewDotH = pow(saturate(dot(viewDir, -H)), 5) * 30 * _SubsurfaceScatteringIntensity;
-                float3 scatter = _Color * _LightColor0 * ViewDotH;
+                float3 scatter = _Color * _MainLightColor * ViewDotH;
 
                 float normalDistribution = NormalDistribution(normal, viewDir);
                 float geometryFunction = GeometryShadowingFunction(normal, viewDir, lightDirection);
 
                 // https://rtarun9.github.io/blogs/physically_based_rendering/#what-is-physically-based-rendering
-                float3 specular = _LightColor0 * (normalDistribution * geometryFunction) / max(4.0f * saturate(dot(viewDir, normal)) * saturate(dot(lightDirection, normal)), FLT_MIN);
+                float3 specular = _MainLightColor * (normalDistribution * geometryFunction) / max(4.0f * saturate(dot(viewDir, normal)) * saturate(dot(lightDirection, normal)), FLT_MIN);
 
                 return (environment + scatter + specular) * _ReflectionStrength;
             }
@@ -184,6 +190,31 @@ Shader "Custom/Water" {
                 TessellationControlPoint output;
                 output.worldPos = mul(unity_ObjectToWorld, vertex.position);
                 return output;
+            }
+
+            float UnityCalcDistanceTessFactor (float4 vertex, float minDist, float maxDist, float tess) {
+                float3 wpos = mul(unity_ObjectToWorld,vertex).xyz;
+                float dist = distance (wpos, _WorldSpaceCameraPos);
+                float f = clamp(1.0 - (dist - minDist) / (maxDist - minDist), 0.01, 1.0) * tess;
+                return f;
+            }
+
+            float4 UnityCalcTriEdgeTessFactors (float3 triVertexFactors) {
+                float4 tess;
+                tess.x = 0.5 * (triVertexFactors.y + triVertexFactors.z);
+                tess.y = 0.5 * (triVertexFactors.x + triVertexFactors.z);
+                tess.z = 0.5 * (triVertexFactors.x + triVertexFactors.y);
+                tess.w = (triVertexFactors.x + triVertexFactors.y + triVertexFactors.z) / 3.0f;
+                return tess;
+            }
+
+            float4 UnityDistanceBasedTess (float4 v0, float4 v1, float4 v2, float minDist, float maxDist, float tess) {
+                float3 f;
+                f.x = UnityCalcDistanceTessFactor (v0,minDist,maxDist,tess);
+                f.y = UnityCalcDistanceTessFactor (v1,minDist,maxDist,tess);
+                f.z = UnityCalcDistanceTessFactor (v2,minDist,maxDist,tess);
+
+                return UnityCalcTriEdgeTessFactors (f);
             }
 
             // The patch constant function runs once per triangle, or "patch"
@@ -226,26 +257,26 @@ Shader "Custom/Water" {
 
                 float3 displacement = 0;
                 for (int i = 0; i < _NbCascades; i++) {
-                    displacement += UNITY_SAMPLE_TEX2DARRAY_LOD(_DisplacementsTextures, float3(output.worldUV / _WaveLengths[i], i), 0);
+                    displacement += SAMPLE_TEXTURE2D_ARRAY_LOD(_DisplacementsTextures, sampler_DisplacementsTextures, output.worldUV / _WaveLengths[i], i, 0);
                 }
                 output.worldPos += mul(unity_ObjectToWorld, displacement);
 
-                output.screenPos = UnityObjectToClipPos(output.worldPos);
-                output.grabPos = ComputeGrabScreenPos(output.screenPos);
+                output.screenPos = TransformObjectToHClip(output.worldPos);
+                output.grabPos = ComputeScreenPos(output.screenPos);
                 output.viewDir = normalize(_WorldSpaceCameraPos - output.worldPos);
 
                 return output;
             }
 
-            fixed4 Fragment(Vertex2FragmentData input) : SV_Target {
+            float4 Fragment(Vertex2FragmentData input) : SV_Target {
                 float4 derivatives = 0;
                 for (int i = 0; i < _NbCascades; i++) {
-                    derivatives += UNITY_SAMPLE_TEX2DARRAY(_DerivativesTextures, float3(input.worldUV / _WaveLengths[i], i));
+                    derivatives += SAMPLE_TEXTURE2D_ARRAY_LOD(_DerivativesTextures, sampler_DerivativesTextures, input.worldUV / _WaveLengths[i], i, 0);
                 }
 
                 float2 slope = float2(derivatives.x / (1 + derivatives.z), derivatives.y / (1 + derivatives.w));
                 float3 objectNormal = normalize(float3(-slope.x, 1, -slope.y));
-                float3 worldNormal = UnityObjectToWorldNormal(objectNormal);
+                float3 worldNormal = TransformObjectToWorldNormal(objectNormal);
 
                 float R0 = pow((AIR_REFRACTION_INDEX - WATER_REFRACTION_INDEX) / (AIR_REFRACTION_INDEX + WATER_REFRACTION_INDEX), 2);
                 float fresnel = R0 + (1 - R0) * pow(1.0 - saturate(dot(worldNormal, input.viewDir)), 5);
@@ -254,10 +285,10 @@ Shader "Custom/Water" {
                 float3 reflection = Reflections(input.viewDir, input.worldPos, worldNormal);
                 float3 emission = lerp(refraction, reflection, fresnel);
 
-                return fixed4(emission, 1.0f);
+                return float4(emission, 1.0f);
             }
             
-            ENDCG
+            ENDHLSL
         }
     }
 }
