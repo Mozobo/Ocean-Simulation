@@ -18,6 +18,10 @@
 // https://www.youtube.com/watch?v=63ufydgBcIk
 // https://catlikecoding.com/unity/tutorials/advanced-rendering/tessellation/
 
+// Shadows
+// https://docs.unity3d.com/Packages/com.unity.render-pipelines.universal@16.0/manual/use-built-in-shader-methods-shadows.html
+// https://www.youtube.com/watch?v=1bm0McKAh9E
+
 // Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
 
 Shader "Custom/Water" {
@@ -39,10 +43,18 @@ Shader "Custom/Water" {
         _RefractionStrength ("Refraction Strength", Range(0, 1)) = 0.5
 		_WaterFogDensity ("Water Fog Density", Range(0, 1)) = 0.1
 
+        [Header(Shadows parameters)]
+        _ShadowsColor ("Color of the shadows", Color) = (0, 0, 0, 1)
+        _ShadowsIntensity ("Shadows Strength", Range(0, 1)) = 0.25
+
     }
 
     SubShader {
-        Tags { "Queue"="Transparent" "RenderType"="Transparent" "RenderPipeline"="UniversalRenderPipeline"}
+        Tags { 
+            "Queue"="Transparent" 
+            "RenderType"="Transparent" 
+            "RenderPipeline"="UniversalRenderPipeline"
+        }
         LOD 200
 
         Pass {
@@ -54,10 +66,13 @@ Shader "Custom/Water" {
             #pragma hull Hull
             #pragma domain Domain
             #pragma fragment Fragment
+
+            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS 
+            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS_CASCADE
+            #pragma multi_compile_fragment _ _SHADOWS_SOFT
             
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
 
             #define M_PI 3.1415926535897932384626433832795f
             #define FLT_MIN 1.175494351e-38
@@ -100,6 +115,9 @@ Shader "Custom/Water" {
             float _SubsurfaceScatteringIntensity;
             float4 _Color;
             float4 _FoamColor;
+
+            float4 _ShadowsColor;
+            float _ShadowsIntensity;
 
             float _LODScale;
             float _MaxTesselationDistance;
@@ -281,9 +299,14 @@ Shader "Custom/Water" {
                 float R0 = pow((AIR_REFRACTION_INDEX - WATER_REFRACTION_INDEX) / (AIR_REFRACTION_INDEX + WATER_REFRACTION_INDEX), 2);
                 float fresnel = R0 + (1 - R0) * pow(1.0 - saturate(dot(worldNormal, input.viewDir)), 5);
 
+                // The shadow coords are computed in the fragment stage because if computed in the domain, the borders between shadow cascades appear as shadows
+                float4 shadowCoord = TransformWorldToShadowCoord(input.worldPos); 
+                float shadowFactor = MainLightRealtimeShadow(shadowCoord);
+
                 float3 refraction = Refraction(input.grabPos, worldNormal);
-                float3 reflection = Reflections(input.viewDir, input.worldPos, worldNormal);
-                float3 emission = lerp(refraction, reflection, fresnel);
+                float3 reflection = Reflections(input.viewDir, input.worldPos, worldNormal) * shadowFactor;
+
+                float3 emission = lerp(lerp(refraction, reflection, fresnel), _ShadowsColor, _ShadowsIntensity * (1 - shadowFactor));
 
                 return float4(emission, 1.0f);
             }

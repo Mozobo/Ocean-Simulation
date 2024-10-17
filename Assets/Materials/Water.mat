@@ -26,12 +26,14 @@ Material:
     m_Ints: []
     m_Floats:
     - _LODScale: 15
-    - _MaxTesselationDistance: 3000
+    - _MaxTesselationDistance: 2500
     - _ReflectionStrength: 1
     - _RefractionStrength: 0.5
     - _Roughness: 0.1
-    - _SubsurfaceScatteringIntensity: 0.25
-    - _WaterFogDensity: 0.058
+    - _ShadowsIntensity: 0.2
+    - _SubsurfaceScatteringIntensity: 0
+    - _WaterFogDensity: 0.14
     m_Colors:
     - _Color: {r: 0, g: 0.20880048, b: 0.4433962, a: 1}
+    - _ShadowsColor: {r: 0, g: 0, b: 0, a: 1}
   m_BuildTextureStacks: []
