@@ -22,18 +22,26 @@ Material:
   m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
-    m_TexEnvs: []
+    m_TexEnvs:
+    - _ReflectionCubemap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _EX: 0.5
+    - _EY: 1
     - _LODScale: 15
-    - _MaxTesselationDistance: 2500
+    - _MaxTesselationDistance: 1000
     - _ReflectionStrength: 1
     - _RefractionStrength: 0.5
     - _Roughness: 0.1
-    - _ShadowsIntensity: 0.2
-    - _SubsurfaceScatteringIntensity: 0
-    - _WaterFogDensity: 0.14
+    - _ShadowsIntensity: 0.5
+    - _SpecularTerm: 1
+    - _SubsurfaceScatteringIntensity: 0.258
+    - _TesselationLevel: 43.5
+    - _WaterFogDensity: 0.3
     m_Colors:
-    - _Color: {r: 0, g: 0.20880048, b: 0.4433962, a: 1}
+    - _Color: {r: 0, g: 0.12735857, b: 0.3962264, a: 1}
     - _ShadowsColor: {r: 0, g: 0, b: 0, a: 1}
   m_BuildTextureStacks: []

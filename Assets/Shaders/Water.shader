@@ -32,12 +32,14 @@ Shader "Custom/Water" {
         _Roughness ("Roughness", Range(0,1)) = 0.5
 
         [Header(Tesselation parameters)]
-        _LODScale("LOD_scale", Range(1,100)) = 10 // Tesselation factor
+        _TesselationLevel("Tesselation Level", Range(1,100)) = 10
         _MaxTesselationDistance("Max Tesselation Distance", Range(1, 10000)) = 250
 
         [Header(Reflection parameters)]
         _ReflectionStrength ("Reflection Strength", Range(0, 1)) = 1
         _SubsurfaceScatteringIntensity ("Subsurface Scattering Strength", Range(0, 1)) = 0.25
+
+        _ReflectionCubemap ("Reflection Cubemap", Cube) = "" {}
 
         [Header(Refraction parameters)]
         _RefractionStrength ("Refraction Strength", Range(0, 1)) = 0.5
@@ -47,6 +49,10 @@ Shader "Custom/Water" {
         _ShadowsColor ("Color of the shadows", Color) = (0, 0, 0, 1)
         _ShadowsIntensity ("Shadows Strength", Range(0, 1)) = 0.25
 
+        [Header(Ashikhmin Shirley BRDF parameters)]
+        _SpecularTerm ("Specular weight", Range(0, 1)) = 1
+        _EX ("E X", Range(0, 1)) = 0.25
+        _EY ("E Y", Range(0, 1)) = 0.25
     }
 
     SubShader {
@@ -119,8 +125,16 @@ Shader "Custom/Water" {
             float4 _ShadowsColor;
             float _ShadowsIntensity;
 
-            float _LODScale;
+            float _TesselationLevel;
             float _MaxTesselationDistance;
+
+            // Ashikhmin Shirley BRDF
+            float _SpecularTerm;
+            float _EX;
+            float _EY;
+
+            TEXTURECUBE(_ReflectionCubemap);
+            SAMPLER(sampler_ReflectionCubemap);
 
             int _NbCascades;
             TEXTURE2D_ARRAY(_DisplacementsTextures);
@@ -163,45 +177,53 @@ Shader "Custom/Water" {
                 return lerp(_Color, backgroundColor, fogFactor);
             }
 
-            float NormalDistribution(float3 normal, float3 viewDir) {
-                float alpha = _Roughness * _Roughness;
+            float NormalDistribution(float3 h, float3 normal, float3 viewDir, float roughness) {
+                float alpha = roughness * roughness;
                 float alphaSquare = alpha * alpha;
-
-                float3 halfwayDir = normalize(_MainLightPosition + viewDir);
-
-                float nDotH = saturate(dot(normal, halfwayDir));
+                float nDotH = saturate(dot(normal, h));
                 
                 return alphaSquare / (max(M_PI * pow((nDotH * nDotH * (alphaSquare - 1.0f) + 1.0f), 2.0f), FLT_MIN));
             }
 
-            float SchlickBeckmannGS(float3 normal, float3 x) {
-                float k = _Roughness / 2.0f;
+            float SchlickBeckmannGS(float3 normal, float3 x, float roughness) {
+                float k = roughness / 2.0f;
                 float nDotX = saturate(dot(normal, x));
                 
                 return nDotX / (max((nDotX * (1.0f - k) + k), FLT_MIN));
             }
 
-            float GeometryShadowingFunction(float3 normal, float3 viewDir, float3 lightDir) {
-                return SchlickBeckmannGS(normal, viewDir) * SchlickBeckmannGS(normal, lightDir);    
+            float GeometryShadowingFunction(float3 normal, float3 viewDir, float3 lightDir, float roughness) {
+                return SchlickBeckmannGS(normal, viewDir, roughness) * SchlickBeckmannGS(normal, lightDir, roughness);    
             }
 
-            float3 Reflections (float3 viewDir, float3 worldPos, float3 normal) {
-                float4 skyData = SAMPLE_TEXTURECUBE_LOD(unity_SpecCube0, samplerunity_SpecCube0, viewDir, 0.0f);
-                half3 environment = skyData.rgb;
+            float3 Reflections (float3 viewDir, float3 normal) {
+                //float3 reflectionDir = viewDir.zyx;
+                float3 reflectionDir = normal;
+                float3 environment = SAMPLE_TEXTURECUBE(_ReflectionCubemap, sampler_ReflectionCubemap, reflectionDir);
+                return environment * M_PI * _ReflectionStrength;
+            }
 
-                float3 lightDirection = normalize(_MainLightPosition.xyz);
+            // https://www.researchgate.net/publication/2523875_An_anisotropic_phong_BRDF_model
+            float3 AshikhminShirleyBRDF(float3 h, float3 v, float3 l, float3 n, float fresnel, float ex, float ey) {
+                if (dot(l, float3(0.0, 1.0, 0.0)) <= 0.0) return 0.0;
+                float cos2PhiH = max((h.x * h.x) / max(1.0 - h.z * h.z, FLT_MIN), 0.0);
+                float sin2PhiH = max((h.y * h.y) / max(1.0 - h.z * h.z, FLT_MIN), 0.0);
+                float d = sqrt((ex + 1) * (ey + 1)) * pow(max(dot(h, n), 0.0), ex * cos2PhiH + ey * sin2PhiH);
 
-                float3 H = normalize(worldPos.y + lightDirection);
-                float ViewDotH = pow(saturate(dot(viewDir, -H)), 5) * 30 * _SubsurfaceScatteringIntensity;
-                float3 scatter = _Color * _MainLightColor * ViewDotH;
+                float specular = max(d * fresnel / max(8 * M_PI * dot(h, v) * max(dot(n, v), dot(n, l)), FLT_MIN), 0.0);
 
-                float normalDistribution = NormalDistribution(normal, viewDir);
-                float geometryFunction = GeometryShadowingFunction(normal, viewDir, lightDirection);
+                float diffuse = max((28 / (23 * M_PI)) * (1 - fresnel) * (1 - pow(1 - 0.5 * dot(n, l), 5)) * (1 - pow(1 - 0.5 * dot(n, v), 5)), 0.0);
+
+                return _MainLightColor * (specular * _SpecularTerm + diffuse * (1 - _SpecularTerm));
+            }
+
+            float3 CookTorranceBRDF(float3 h, float3 normal, float3 viewDir, float3 lightDirection, float fresnel, float roughness) {
+                if (dot(lightDirection, float3(0.0, 1.0, 0.0)) <= 0.0) return 0.0;
+                float normalDistribution = max(NormalDistribution(h, normal, viewDir, roughness), 0.0);
+                float geometryFunction = max(GeometryShadowingFunction(normal, viewDir, lightDirection, roughness), 0.0);
 
                 // https://rtarun9.github.io/blogs/physically_based_rendering/#what-is-physically-based-rendering
-                float3 specular = _MainLightColor * (normalDistribution * geometryFunction) / max(4.0f * saturate(dot(viewDir, normal)) * saturate(dot(lightDirection, normal)), FLT_MIN);
-
-                return (environment + scatter + specular) * _ReflectionStrength;
+                return _MainLightColor * (normalDistribution * geometryFunction) / max(4.0f * saturate(dot(viewDir, normal)) * saturate(dot(lightDirection, normal)), FLT_MIN);
             }
 
             TessellationControlPoint Vertex(VertexData vertex) {
@@ -211,8 +233,8 @@ Shader "Custom/Water" {
             }
 
             float UnityCalcDistanceTessFactor (float4 vertex, float minDist, float maxDist, float tess) {
-                float3 wpos = mul(unity_ObjectToWorld,vertex).xyz;
-                float dist = distance (wpos, _WorldSpaceCameraPos);
+                //float3 wpos = mul(unity_ObjectToWorld,vertex).xyz;
+                float dist = distance (vertex.xyz, _WorldSpaceCameraPos);
                 float f = clamp(1.0 - (dist - minDist) / (maxDist - minDist), 0.01, 1.0) * tess;
                 return f;
             }
@@ -239,7 +261,7 @@ Shader "Custom/Water" {
             // It runs in parallel to the hull function
             TessellationFactors PatchConstantFunction(InputPatch<TessellationControlPoint, 3> patch) {
                 // Calculate tessellation factors
-                float4 factors = UnityDistanceBasedTess(patch[0].worldPos, patch[1].worldPos, patch[2].worldPos, 1, _MaxTesselationDistance, _LODScale);
+                float4 factors = UnityDistanceBasedTess(patch[0].worldPos, patch[1].worldPos, patch[2].worldPos, 1 , _MaxTesselationDistance, _TesselationLevel);
                 TessellationFactors f;
                 f.edge[0] = factors.x;
                 f.edge[1] = factors.y;
@@ -294,17 +316,32 @@ Shader "Custom/Water" {
 
                 float2 slope = float2(derivatives.x / (1 + derivatives.z), derivatives.y / (1 + derivatives.w));
                 float3 objectNormal = normalize(float3(-slope.x, 1, -slope.y));
-                float3 worldNormal = TransformObjectToWorldNormal(objectNormal);
+                float3 worldNormal = normalize(TransformObjectToWorldNormal(objectNormal));
+
+                float3 lightDirection = normalize(_MainLightPosition);
+                float3 H = normalize(input.viewDir + lightDirection);
 
                 float R0 = pow((AIR_REFRACTION_INDEX - WATER_REFRACTION_INDEX) / (AIR_REFRACTION_INDEX + WATER_REFRACTION_INDEX), 2);
                 float fresnel = R0 + (1 - R0) * pow(1.0 - saturate(dot(worldNormal, input.viewDir)), 5);
+                float fresnelH = R0 + (1 - R0) * pow(1.0 - saturate(dot(H, input.viewDir)), 5);
 
                 // The shadow coords are computed in the fragment stage because if computed in the domain, the borders between shadow cascades appear as shadows
                 float4 shadowCoord = TransformWorldToShadowCoord(input.worldPos); 
                 float shadowFactor = MainLightRealtimeShadow(shadowCoord);
 
                 float3 refraction = Refraction(input.grabPos, worldNormal);
-                float3 reflection = Reflections(input.viewDir, input.worldPos, worldNormal) * shadowFactor;
+                float3 reflection = Reflections(input.viewDir, worldNormal);
+                
+                float dynamicRoughness = lerp(_Roughness, _Roughness * 1.5, pow(1.0 - abs(worldNormal.y), 2.0));
+                float nu = _EX * 100.0 * (1.0 - dynamicRoughness); // Controls anisotropy along x-axis
+                float nv = _EY * 10.0 * (1.0 - dynamicRoughness);  // Controls anisotropy along z-axis
+                float3 ashikhminShirleySpec = AshikhminShirleyBRDF(H, input.viewDir, lightDirection, worldNormal, fresnelH, nu, nv);
+                float3 cookTorranceSpec = CookTorranceBRDF(H, worldNormal, input.viewDir, lightDirection, fresnelH, dynamicRoughness);
+
+                // Blending factor based on view angle, emphasizing Ashikhmin-Shirley at flatter angles
+                float blendFactor = pow(1.0 - saturate(dot(input.viewDir, worldNormal)), 1.5);
+
+                reflection += lerp(ashikhminShirleySpec, cookTorranceSpec, blendFactor) * shadowFactor;
 
                 float3 emission = lerp(lerp(refraction, reflection, fresnel), _ShadowsColor, _ShadowsIntensity * (1 - shadowFactor));
 

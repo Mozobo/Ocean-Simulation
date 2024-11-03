@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
+using UnityEngine.Rendering;
 
 public class WaterBody : MonoBehaviour
 {
@@ -15,6 +16,8 @@ public class WaterBody : MonoBehaviour
 
     
     public Material material;
+
+    private ReflectionProbe reflectionProbe;
 
     public int texturesSize = 256;
     public ComputeShader initialSpectrumComputeShader;
@@ -207,6 +210,26 @@ public class WaterBody : MonoBehaviour
         InitializeTimeDependentSpectrumComputeShader();
         InitializeResultTexturesFillerComputeShader();
 
+        GameObject probeObject = new GameObject("RealtimeReflectionProbe");
+        reflectionProbe = probeObject.AddComponent<ReflectionProbe>();
+        probeObject.transform.SetParent(transform);
+
+        reflectionProbe.mode = ReflectionProbeMode.Realtime;
+        reflectionProbe.refreshMode = ReflectionProbeRefreshMode.EveryFrame;
+        reflectionProbe.timeSlicingMode = ReflectionProbeTimeSlicingMode.AllFacesAtOnce;
+        reflectionProbe.clearFlags = ReflectionProbeClearFlags.Skybox;
+        reflectionProbe.cullingMask = 0;
+        
+        // We create a custom RenderTexture so we can set the reflection texture in the material.
+        // Otherwise, we would have to make the Probe generate the default texture after the game has started, causing renderProbe.texture to return null at the time of assignment to the material.
+        // By creating our custom RenderTexture and assigning it to the RenderProbe, we ensure that the material receives a correct reference to the cubemap.
+        RenderTexture reflectionTexture = new RenderTexture(reflectionProbe.resolution, reflectionProbe.resolution, 16);
+        reflectionTexture.dimension = UnityEngine.Rendering.TextureDimension.Cube; // Important: Set to Cubemap
+        reflectionTexture.Create();
+        
+        reflectionProbe.realtimeTexture = reflectionTexture;
+
+        material.SetTexture("_ReflectionCubemap", reflectionTexture);
         material.SetInt("_NbCascades", cascades.Length);
         material.SetTexture("_DisplacementsTextures", displacementsTextures);
         material.SetTexture("_DerivativesTextures", derivativesTextures);
