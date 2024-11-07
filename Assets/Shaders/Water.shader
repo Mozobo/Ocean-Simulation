@@ -37,8 +37,6 @@ Shader "Custom/Water" {
 
         [Header(Reflection parameters)]
         _ReflectionStrength ("Reflection Strength", Range(0, 1)) = 1
-        _SubsurfaceScatteringIntensity ("Subsurface Scattering Strength", Range(0, 1)) = 0.25
-
         _ReflectionCubemap ("Reflection Cubemap", Cube) = "" {}
 
         [Header(Refraction parameters)]
@@ -118,7 +116,6 @@ Shader "Custom/Water" {
             float _WaterFogDensity;
             float _RefractionStrength;
             float _ReflectionStrength;
-            float _SubsurfaceScatteringIntensity;
             float4 _Color;
             float4 _FoamColor;
 
@@ -146,6 +143,7 @@ Shader "Custom/Water" {
             uniform float _WaveLengths [5];
             
             // For correct refractions, in the URP pipeline asset you have to enable both 'Depth Texture' and 'Opaque Texture'
+            // Also set the Depth Priming Mode to Forced or the main camera will not render the scene correctly
             float3 Refraction (float4 grabPos, float3 worldNormal) {
                 float2 uvOffset = worldNormal.xy * _RefractionStrength;
                 uvOffset.y *= _CameraOpaqueTexture_TexelSize.z * abs(_CameraOpaqueTexture_TexelSize.y);
