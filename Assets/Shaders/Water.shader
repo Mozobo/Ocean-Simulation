@@ -34,6 +34,7 @@ Shader "Custom/Water" {
         [Header(Tesselation parameters)]
         _TesselationLevel("Tesselation Level", Range(1,100)) = 10
         _MaxTesselationDistance("Max Tesselation Distance", Range(1, 10000)) = 250
+        _CullingTollerance("Culling tollerance", Range(1, 100)) = 1
 
         [Header(Reflection parameters)]
         _ReflectionStrength ("Reflection Strength", Range(0, 1)) = 1
@@ -96,6 +97,7 @@ Shader "Custom/Water" {
 
             struct TessellationControlPoint {
                 float4 worldPos : INTERNALTESSPOS; // World System
+                float4 positionCS : SV_POSITION;
             };
 
             struct TessellationFactors {
@@ -124,6 +126,7 @@ Shader "Custom/Water" {
 
             float _TesselationLevel;
             float _MaxTesselationDistance;
+            float _CullingTollerance;
 
             // Ashikhmin Shirley BRDF
             float _SpecularTerm;
@@ -227,6 +230,7 @@ Shader "Custom/Water" {
             TessellationControlPoint Vertex(VertexData vertex) {
                 TessellationControlPoint output;
                 output.worldPos = mul(unity_ObjectToWorld, vertex.position);
+                output.positionCS = GetVertexPositionInputs(vertex.position).positionCS;
                 return output;
             }
 
@@ -255,16 +259,47 @@ Shader "Custom/Water" {
                 return UnityCalcTriEdgeTessFactors (f);
             }
 
+            // https://nedmakesgames.medium.com/mastering-tessellation-shaders-and-their-many-uses-in-unity-9caeb760150e
+            // Returns true if the point is outside the bounds set by lower and higher
+            bool IsOutOfBounds(float3 p, float3 lower, float3 higher) {
+                return p.x < lower.x || p.x > higher.x || p.y < lower.y || p.y > higher.y || p.z < lower.z || p.z > higher.z;
+            }
+
+            // https://nedmakesgames.medium.com/mastering-tessellation-shaders-and-their-many-uses-in-unity-9caeb760150e
+            // Returns true if the given vertex is outside the camera fustum and should be culled
+            bool IsPointOutOfFrustum(float4 positionCS) {
+                float3 culling = positionCS.xyz;
+                float w = positionCS.w;
+                // UNITY_RAW_FAR_CLIP_VALUE is either 0 or 1, depending on graphics API
+                // Most use 0, however OpenGL uses 1
+                float3 lowerBounds = float3(-w - _CullingTollerance, -w - _CullingTollerance, -w * UNITY_RAW_FAR_CLIP_VALUE - _CullingTollerance);
+                float3 higherBounds = float3(w + _CullingTollerance, w + _CullingTollerance, w + _CullingTollerance);
+                return IsOutOfBounds(culling, lowerBounds, higherBounds);
+            }
+
+            // https://nedmakesgames.medium.com/mastering-tessellation-shaders-and-their-many-uses-in-unity-9caeb760150e
+            // Returns true if it should be clipped due to frustum or winding culling
+            bool ShouldClipPatch(float4 p0PositionCS, float4 p1PositionCS, float4 p2PositionCS) {
+                bool allOutside = IsPointOutOfFrustum(p0PositionCS) &&
+                    IsPointOutOfFrustum(p1PositionCS) &&
+                    IsPointOutOfFrustum(p2PositionCS);
+                return allOutside;
+            }
+
             // The patch constant function runs once per triangle, or "patch"
             // It runs in parallel to the hull function
             TessellationFactors PatchConstantFunction(InputPatch<TessellationControlPoint, 3> patch) {
                 // Calculate tessellation factors
-                float4 factors = UnityDistanceBasedTess(patch[0].worldPos, patch[1].worldPos, patch[2].worldPos, 1 , _MaxTesselationDistance, _TesselationLevel);
                 TessellationFactors f;
-                f.edge[0] = factors.x;
-                f.edge[1] = factors.y;
-                f.edge[2] = factors.z;
-                f.inside = factors.w;
+                if (ShouldClipPatch(patch[0].positionCS, patch[1].positionCS, patch[2].positionCS)) {
+                    f.edge[0] = f.edge[1] = f.edge[2] = f.inside = 0; // Cull the patch
+                } else {
+                    float4 factors = UnityDistanceBasedTess(patch[0].worldPos, patch[1].worldPos, patch[2].worldPos, 1 , _MaxTesselationDistance, _TesselationLevel);
+                    f.edge[0] = factors.x;
+                    f.edge[1] = factors.y;
+                    f.edge[2] = factors.z;
+                    f.inside = factors.w;
+                }
                 return f;
             }
 
