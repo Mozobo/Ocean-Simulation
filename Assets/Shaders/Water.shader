@@ -30,6 +30,7 @@ Shader "Custom/Water" {
         [Header(General parameters)]
         _Color ("Color", Color) = (1,1,1,1)
         _Roughness ("Roughness", Range(0,1)) = 0.5
+        _MaxLODLevel("Max LOD Level", Range(0, 16)) = 8
 
         [Header(Tesselation parameters)]
         _TesselationLevel("Tesselation Level", Range(1,100)) = 10
@@ -111,10 +112,12 @@ Shader "Custom/Water" {
                 float3 worldPos : TEXCOORD1;
                 float2 worldUV : TEXCOORD2;
                 float4 grabPos: TEXCOORD3; // texture coordinate for sampling a GrabPass texure
+                float lodLevel: TEXCOORD4;
             };
 
             // Variables with value provided by us (Through code or through Unity's interface)
             half _Roughness;
+            float _MaxLODLevel;
             float _WaterFogDensity;
             float _RefractionStrength;
             float _ReflectionStrength;
@@ -328,9 +331,12 @@ Shader "Custom/Water" {
                 output.worldPos = BARYCENTRIC_INTERPOLATE(worldPos);
                 output.worldUV = output.worldPos.xz;
 
+                float lodFactor = distance(output.worldPos, _WorldSpaceCameraPos) / _MaxTesselationDistance;
+                output.lodLevel = lerp(0.0, _MaxLODLevel, lodFactor);
+
                 float3 displacement = 0;
                 for (int i = 0; i < _NbCascades; i++) {
-                    displacement += SAMPLE_TEXTURE2D_ARRAY_LOD(_DisplacementsTextures, sampler_DisplacementsTextures, output.worldUV / _WaveLengths[i], i, 0);
+                    displacement += SAMPLE_TEXTURE2D_ARRAY_LOD(_DisplacementsTextures, sampler_DisplacementsTextures, output.worldUV / _WaveLengths[i], i, output.lodLevel);
                 }
                 output.worldPos += mul(unity_ObjectToWorld, displacement);
 
@@ -344,7 +350,7 @@ Shader "Custom/Water" {
             float4 Fragment(Vertex2FragmentData input) : SV_Target {
                 float4 derivatives = 0;
                 for (int i = 0; i < _NbCascades; i++) {
-                    derivatives += SAMPLE_TEXTURE2D_ARRAY_LOD(_DerivativesTextures, sampler_DerivativesTextures, input.worldUV / _WaveLengths[i], i, 0);
+                    derivatives += SAMPLE_TEXTURE2D_ARRAY_LOD(_DerivativesTextures, sampler_DerivativesTextures, input.worldUV / _WaveLengths[i], i, input.lodLevel);
                 }
 
                 float2 slope = float2(derivatives.x / (1 + derivatives.z), derivatives.y / (1 + derivatives.w));
