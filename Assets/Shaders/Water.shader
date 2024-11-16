@@ -35,7 +35,8 @@ Shader "Custom/Water" {
         [Header(Tesselation parameters)]
         _TesselationLevel("Tesselation Level", Range(1,100)) = 10
         _MaxTesselationDistance("Max Tesselation Distance", Range(1, 10000)) = 250
-        _CullingTollerance("Culling tollerance", Range(1, 100)) = 1
+        _TesselationDecayFactor("Decay Factor", Range(1, 10)) = 4
+        _CullingTollerance("Culling tollerance", Range(1, 10)) = 6
 
         [Header(Reflection parameters)]
         _ReflectionStrength ("Reflection Strength", Range(0, 1)) = 1
@@ -129,6 +130,7 @@ Shader "Custom/Water" {
 
             float _TesselationLevel;
             float _MaxTesselationDistance;
+            float _TesselationDecayFactor;
             float _CullingTollerance;
 
             // Ashikhmin Shirley BRDF
@@ -238,9 +240,10 @@ Shader "Custom/Water" {
             }
 
             float UnityCalcDistanceTessFactor (float4 vertex, float minDist, float maxDist, float tess) {
-                //float3 wpos = mul(unity_ObjectToWorld,vertex).xyz;
                 float dist = distance (vertex.xyz, _WorldSpaceCameraPos);
-                float f = clamp(1.0 - (dist - minDist) / (maxDist - minDist), 0.01, 1.0) * tess;
+                float normalizedDist = saturate((dist - minDist) / (maxDist - minDist));
+                float decayFactor = exp(-_TesselationDecayFactor * normalizedDist);
+                float f = saturate(decayFactor) * tess;
                 return f;
             }
 
