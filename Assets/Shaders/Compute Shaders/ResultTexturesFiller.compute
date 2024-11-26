@@ -26,7 +26,7 @@ void FillResultTextures(uint3 id : SV_DispatchThreadID)
         _DerivativesTextures[uint3(id.xy,i)] = float4(DyxDyz, DxxDzz);
         float jacobian = (1 + DxxDzz.x) * (1 + DxxDzz.y) - DyDxz.y * DyDxz.y;
         float foam = _TurbulenceTextures[uint3(id.xy,i)].x;
-        float foamDecayRate = 1;
+        float foamDecayRate = 2;
         foam *= exp(-foamDecayRate);
         if (foam < jacobian) foam += jacobian;
         _TurbulenceTextures[uint3(id.xy,i)] = foam;

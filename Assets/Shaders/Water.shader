@@ -50,6 +50,11 @@ Shader "Custom/Water" {
         _ShadowsColor ("Color of the shadows", Color) = (0, 0, 0, 1)
         _ShadowsIntensity ("Shadows Strength", Range(0, 1)) = 0.25
 
+        [Header(Foam parameters)]
+        _FoamColor ("Foam Color", Color) = (1, 1, 1, 1)
+        _FoamThreshold ("Foam Threshold", Range(0, 1)) = 0.5
+        _FoamBlending ("Foam Blending", Range(0, 1)) = 0.5
+
         [Header(Ashikhmin Shirley BRDF parameters)]
         _SpecularTerm ("Specular weight", Range(0, 1)) = 1
         _EX ("E X", Range(0, 1)) = 0.25
@@ -123,7 +128,6 @@ Shader "Custom/Water" {
             float _RefractionStrength;
             float _ReflectionStrength;
             float4 _Color;
-            float4 _FoamColor;
 
             float4 _ShadowsColor;
             float _ShadowsIntensity;
@@ -137,6 +141,10 @@ Shader "Custom/Water" {
             float _SpecularTerm;
             float _EX;
             float _EY;
+
+            float3 _FoamColor;
+            float _FoamThreshold;
+            float _FoamBlending;
 
             TEXTURECUBE(_ReflectionCubemap);
             SAMPLER(sampler_ReflectionCubemap);
@@ -216,11 +224,11 @@ Shader "Custom/Water" {
                 float sin2PhiH = max((h.y * h.y) / max(1.0 - h.z * h.z, FLT_MIN), 0.0);
                 float d = sqrt((ex + 1) * (ey + 1)) * pow(max(dot(h, n), 0.0), ex * cos2PhiH + ey * sin2PhiH);
 
-                float specular = max(d * fresnel / max(8 * M_PI * dot(h, v) * max(dot(n, v), dot(n, l)), FLT_MIN), 0.0);
+                float specular = max(d * fresnel / max(16 * M_PI * dot(h, v) * max(dot(n, v), dot(n, l)), FLT_MIN), 0.0);
 
-                float diffuse = max((28 / (23 * M_PI)) * (1 - fresnel) * (1 - pow(1 - 0.5 * dot(n, l), 5)) * (1 - pow(1 - 0.5 * dot(n, v), 5)), 0.0);
+                //float diffuse = max((28 / (23 * M_PI)) * (1 - fresnel) * (1 - pow(1 - 0.5 * dot(n, l), 5)) * (1 - pow(1 - 0.5 * dot(n, v), 5)), 0.0);
 
-                return _MainLightColor * (specular * _SpecularTerm + diffuse * (1 - _SpecularTerm));
+                return _MainLightColor * specular;
             }
 
             float3 CookTorranceBRDF(float3 h, float3 normal, float3 viewDir, float3 lightDirection, float fresnel, float roughness) {
@@ -229,7 +237,7 @@ Shader "Custom/Water" {
                 float geometryFunction = max(GeometryShadowingFunction(normal, viewDir, lightDirection, roughness), 0.0);
 
                 // https://rtarun9.github.io/blogs/physically_based_rendering/#what-is-physically-based-rendering
-                return _MainLightColor * (normalDistribution * geometryFunction) / max(4.0f * saturate(dot(viewDir, normal)) * saturate(dot(lightDirection, normal)), FLT_MIN);
+                return _MainLightColor * normalDistribution * geometryFunction / max(4.0f * saturate(dot(viewDir, normal)) * saturate(dot(lightDirection, normal)), FLT_MIN);
             }
 
             TessellationControlPoint Vertex(VertexData vertex) {
@@ -360,11 +368,16 @@ Shader "Custom/Water" {
                 float3 objectNormal = normalize(float3(-slope.x, 1, -slope.y));
                 float3 worldNormal = normalize(TransformObjectToWorldNormal(objectNormal));
 
+                float turbulence = 0;
+                for (int i = 0; i < _NbCascades; i++) {
+                    turbulence += 1 - saturate(SAMPLE_TEXTURE2D_ARRAY_LOD(_TurbulenceTextures, sampler_TurbulenceTextures, input.worldUV / _WaveLengths[i], i, input.lodLevel).x);
+                }
+
                 float3 lightDirection = normalize(_MainLightPosition);
                 float3 H = normalize(input.viewDir + lightDirection);
 
                 float R0 = pow((AIR_REFRACTION_INDEX - WATER_REFRACTION_INDEX) / (AIR_REFRACTION_INDEX + WATER_REFRACTION_INDEX), 2);
-                float fresnel = R0 + (1 - R0) * pow(1.0 - saturate(dot(worldNormal, input.viewDir)), 5);
+                float fresnel = R0 + (1 - R0) * pow(1.0 - saturate(dot(worldNormal, input.viewDir)), 5 * exp(-2.69*_Roughness)) / (1 + 22.7 * pow(_Roughness, 1.5));
                 float fresnelH = R0 + (1 - R0) * pow(1.0 - saturate(dot(H, input.viewDir)), 5);
 
                 // The shadow coords are computed in the fragment stage because if computed in the domain, the borders between shadow cascades appear as shadows
@@ -381,11 +394,12 @@ Shader "Custom/Water" {
                 float3 cookTorranceSpec = CookTorranceBRDF(H, worldNormal, input.viewDir, lightDirection, fresnelH, dynamicRoughness);
 
                 // Blending factor based on view angle, emphasizing Ashikhmin-Shirley at flatter angles
-                float blendFactor = pow(1.0 - saturate(dot(input.viewDir, worldNormal)), 1.5);
+                float blendFactor = 1.0 - saturate(dot(input.viewDir, worldNormal));
 
-                reflection += lerp(ashikhminShirleySpec, cookTorranceSpec, blendFactor) * shadowFactor;
+                reflection += lerp(cookTorranceSpec, ashikhminShirleySpec, blendFactor) * shadowFactor;
 
                 float3 emission = lerp(lerp(refraction, reflection, fresnel), _ShadowsColor, _ShadowsIntensity * (1 - shadowFactor));
+                if (turbulence >= _FoamThreshold) emission = lerp(emission, _FoamColor, _FoamBlending);
 
                 return float4(emission, 1.0f);
             }
