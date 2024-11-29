@@ -14,6 +14,11 @@ public class WaterBody : MonoBehaviour
     public float depth = 4.0f;
     // ---------------------------
 
+    // Buoyancy parameters
+    public float density = 1f;
+    public float drag = 10f;
+    public float angularDrag = 1f;
+    // ---------------
     
     public Material material;
 
@@ -43,6 +48,8 @@ public class WaterBody : MonoBehaviour
     private RenderTexture displacementsTextures;
     private RenderTexture derivativesTextures;
     private RenderTexture turbulenceTextures;
+
+    private Color[] buoyancyData;
 
     const int LOCAL_WORK_GROUPS_X = 8;
     const int LOCAL_WORK_GROUPS_Y = 8;
@@ -171,6 +178,20 @@ public class WaterBody : MonoBehaviour
         turbulenceTextures.GenerateMips();
     }
 
+    public float GetWaterHeight(Vector3 worldPosition) {
+        if (buoyancyData == null) return 0f;
+
+        float u = Mathf.InverseLerp(-texturesSize / 2, texturesSize / 2, worldPosition.x);
+        float v = Mathf.InverseLerp(-texturesSize / 2, texturesSize / 2, worldPosition.z);
+
+        // Map UV to pixel coordinates
+        int x = Mathf.Clamp((int)(u * displacementsTextures.width), 0, displacementsTextures.width - 1);
+        int y = Mathf.Clamp((int)(v * displacementsTextures.height), 0, displacementsTextures.height - 1);
+
+        int index = y * displacementsTextures.width + x;
+        return buoyancyData[index].g;
+    }
+
     void Awake(){
         GenerateRandomNoiseTexture();
 
@@ -239,6 +260,16 @@ public class WaterBody : MonoBehaviour
 
     void Update(){
         CalculateWavesTexturesAtTime(Time.time);
+
+        AsyncGPUReadback.Request(displacementsTextures, 0, request => {
+            if (request.hasError) {
+                Debug.LogError("Async GPU Readback failed!");
+                return;
+            }
+
+            // Convert the request data to a Color array (assuming RGBAFloat format)
+            buoyancyData = request.GetData<Color>().ToArray();
+        });
     }
 
     /* Prevent leaks from the Buffers */
