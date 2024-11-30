@@ -46,6 +46,10 @@ Shader "Custom/Water" {
         _RefractionStrength ("Refraction Strength", Range(0, 1)) = 0.5
 		_WaterFogDensity ("Water Fog Density", Range(0, 1)) = 0.1
 
+        [Header(Subsurface scattering parameters)]
+        _SubsurfaceScatteringIntensity ("Subsurface Scattering Intensity", Range(0, 1)) = 0.5
+        _SubsurfaceScatteringColor ("Scatter color", Color) = (0, 0, 0, 1)
+
         [Header(Shadows parameters)]
         _ShadowsColor ("Color of the shadows", Color) = (0, 0, 0, 1)
         _ShadowsIntensity ("Shadows Strength", Range(0, 1)) = 0.25
@@ -131,6 +135,9 @@ Shader "Custom/Water" {
 
             float4 _ShadowsColor;
             float _ShadowsIntensity;
+
+            float _SubsurfaceScatteringIntensity;
+            float4 _SubsurfaceScatteringColor;
 
             float _TesselationLevel;
             float _MaxTesselationDistance;
@@ -240,10 +247,16 @@ Shader "Custom/Water" {
                 return _MainLightColor * normalDistribution * geometryFunction / max(4.0f * saturate(dot(viewDir, normal)) * saturate(dot(lightDirection, normal)), FLT_MIN);
             }
 
+            float3 SubsurfaceScatteringApproximation(float waveHeight, float3 lightDirection, float3 viewDir, float3 halfVec) {
+                float coeff = _SubsurfaceScatteringIntensity * max(0, waveHeight) * pow(max(0, dot(lightDirection, viewDir)), 4);
+                return coeff * _SubsurfaceScatteringColor * _MainLightColor;
+                // return coeff * _Color * _MainLightColor;
+            }
+
             TessellationControlPoint Vertex(VertexData vertex) {
                 TessellationControlPoint output;
                 output.worldPos = mul(unity_ObjectToWorld, vertex.position);
-                output.positionCS = GetVertexPositionInputs(vertex.position).positionCS;
+                output.positionCS = GetVertexPositionInputs(output.worldPos).positionCS;
                 return output;
             }
 
@@ -385,6 +398,7 @@ Shader "Custom/Water" {
                 float shadowFactor = MainLightRealtimeShadow(shadowCoord);
 
                 float3 refraction = Refraction(input.grabPos, worldNormal);
+                refraction += SubsurfaceScatteringApproximation(input.worldPos.y, lightDirection, -input.viewDir, H);
                 float3 reflection = Reflections(input.viewDir, worldNormal);
                 
                 float dynamicRoughness = lerp(_Roughness, _Roughness * 1.5, pow(1.0 - abs(worldNormal.y), 2.0));
