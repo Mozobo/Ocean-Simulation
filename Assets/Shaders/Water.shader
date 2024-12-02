@@ -103,11 +103,11 @@ Shader "Custom/Water" {
             float4 _CameraOpaqueTexture_TexelSize;
 
             struct VertexData {
-                float4 position : POSITION; // Object system
+                float3 position : POSITION; // Object system
             };
 
             struct TessellationControlPoint {
-                float4 worldPos : INTERNALTESSPOS; // World System
+                float3 worldPos : INTERNALTESSPOS; // World System
                 float4 positionCS : SV_POSITION;
             };
 
@@ -255,35 +255,18 @@ Shader "Custom/Water" {
 
             TessellationControlPoint Vertex(VertexData vertex) {
                 TessellationControlPoint output;
-                output.worldPos = mul(unity_ObjectToWorld, vertex.position);
-                output.positionCS = GetVertexPositionInputs(output.worldPos).positionCS;
+                VertexPositionInputs posInputs = GetVertexPositionInputs(vertex.position);
+                output.worldPos = posInputs.positionWS;
+                output.positionCS = posInputs.positionCS;
                 return output;
             }
 
-            float UnityCalcDistanceTessFactor (float4 vertex, float minDist, float maxDist, float tess) {
+            float DistanceBasedTessFactor (float3 vertex, float minDist, float maxDist, float tess) {
                 float dist = distance (vertex.xyz, _WorldSpaceCameraPos);
                 float normalizedDist = saturate((dist - minDist) / (maxDist - minDist));
                 float decayFactor = exp(-_TesselationDecayFactor * normalizedDist);
                 float f = saturate(decayFactor) * tess;
                 return f;
-            }
-
-            float4 UnityCalcTriEdgeTessFactors (float3 triVertexFactors) {
-                float4 tess;
-                tess.x = 0.5 * (triVertexFactors.y + triVertexFactors.z);
-                tess.y = 0.5 * (triVertexFactors.x + triVertexFactors.z);
-                tess.z = 0.5 * (triVertexFactors.x + triVertexFactors.y);
-                tess.w = (triVertexFactors.x + triVertexFactors.y + triVertexFactors.z) / 3.0f;
-                return tess;
-            }
-
-            float4 UnityDistanceBasedTess (float4 v0, float4 v1, float4 v2, float minDist, float maxDist, float tess) {
-                float3 f;
-                f.x = UnityCalcDistanceTessFactor (v0,minDist,maxDist,tess);
-                f.y = UnityCalcDistanceTessFactor (v1,minDist,maxDist,tess);
-                f.z = UnityCalcDistanceTessFactor (v2,minDist,maxDist,tess);
-
-                return UnityCalcTriEdgeTessFactors (f);
             }
 
             // https://nedmakesgames.medium.com/mastering-tessellation-shaders-and-their-many-uses-in-unity-9caeb760150e
@@ -321,11 +304,14 @@ Shader "Custom/Water" {
                 if (ShouldClipPatch(patch[0].positionCS, patch[1].positionCS, patch[2].positionCS)) {
                     f.edge[0] = f.edge[1] = f.edge[2] = f.inside = 0; // Cull the patch
                 } else {
-                    float4 factors = UnityDistanceBasedTess(patch[0].worldPos, patch[1].worldPos, patch[2].worldPos, 1 , _MaxTesselationDistance, _TesselationLevel);
-                    f.edge[0] = factors.x;
-                    f.edge[1] = factors.y;
-                    f.edge[2] = factors.z;
-                    f.inside = factors.w;
+                    float3 edgePosition0 = 0.5 * (patch[1].worldPos + patch[2].worldPos);
+                    float3 edgePosition1 = 0.5 * (patch[0].worldPos + patch[2].worldPos);
+                    float3 edgePosition2 = 0.5 * (patch[0].worldPos + patch[1].worldPos);
+
+                    f.edge[0] = DistanceBasedTessFactor(edgePosition0, 1, _MaxTesselationDistance, _TesselationLevel);
+                    f.edge[1] = DistanceBasedTessFactor(edgePosition1, 1, _MaxTesselationDistance, _TesselationLevel);
+                    f.edge[2] = DistanceBasedTessFactor(edgePosition2, 1, _MaxTesselationDistance, _TesselationLevel);
+                    f.inside = (f.edge[0] + f.edge[1] + f.edge[2]) / 3.0;
                 }
                 return f;
             }
@@ -364,7 +350,7 @@ Shader "Custom/Water" {
                 }
                 output.worldPos += mul(unity_ObjectToWorld, displacement);
 
-                output.screenPos = TransformObjectToHClip(output.worldPos);
+                output.screenPos = TransformWorldToHClip(output.worldPos);
                 output.grabPos = ComputeScreenPos(output.screenPos);
                 output.viewDir = normalize(_WorldSpaceCameraPos - output.worldPos);
 
