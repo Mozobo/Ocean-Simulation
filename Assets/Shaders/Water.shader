@@ -231,7 +231,7 @@ Shader "Custom/Water" {
                 float sin2PhiH = max((h.y * h.y) / max(1.0 - h.z * h.z, FLT_MIN), 0.0);
                 float d = sqrt((ex + 1) * (ey + 1)) * pow(max(dot(h, n), 0.0), ex * cos2PhiH + ey * sin2PhiH);
 
-                float specular = max(d * fresnel / max(16 * M_PI * dot(h, v) * max(dot(n, v), dot(n, l)), FLT_MIN), 0.0);
+                float specular = max(d * fresnel / max(4 * M_PI * dot(h, v) * max(dot(n, v), dot(n, l)), FLT_MIN), 0.0);
 
                 //float diffuse = max((28 / (23 * M_PI)) * (1 - fresnel) * (1 - pow(1 - 0.5 * dot(n, l), 5)) * (1 - pow(1 - 0.5 * dot(n, v), 5)), 0.0);
 
@@ -244,7 +244,7 @@ Shader "Custom/Water" {
                 float geometryFunction = max(GeometryShadowingFunction(normal, viewDir, lightDirection, roughness), 0.0);
 
                 // https://rtarun9.github.io/blogs/physically_based_rendering/#what-is-physically-based-rendering
-                return _MainLightColor * normalDistribution * geometryFunction / max(4.0f * saturate(dot(viewDir, normal)) * saturate(dot(lightDirection, normal)), FLT_MIN);
+                return _MainLightColor * normalDistribution * geometryFunction / max(8.0f * saturate(dot(viewDir, normal)) * saturate(dot(lightDirection, normal)), FLT_MIN);
             }
 
             float3 SubsurfaceScatteringApproximation(float waveHeight, float3 lightDirection, float3 viewDir, float3 halfVec) {
@@ -407,10 +407,8 @@ Shader "Custom/Water" {
                 float3 ashikhminShirleySpec = AshikhminShirleyBRDF(H, input.viewDir, lightDirection, worldNormal, fresnelH, nu, nv);
                 float3 cookTorranceSpec = CookTorranceBRDF(H, worldNormal, input.viewDir, lightDirection, fresnelH, dynamicRoughness);
 
-                // Blending factor based on view angle, emphasizing Ashikhmin-Shirley at flatter angles
-                float blendFactor = 1.0 - saturate(dot(input.viewDir, worldNormal));
-
-                reflection += lerp(cookTorranceSpec, ashikhminShirleySpec, blendFactor) * shadowFactor;
+                // Blending factor based on view angle, adding Ashikhmin-Shirley at flatter angles
+                reflection += (cookTorranceSpec + ashikhminShirleySpec * saturate(dot(input.viewDir, worldNormal))) * shadowFactor;
 
                 float3 emission = lerp(lerp(refraction, reflection, fresnel), _ShadowsColor, _ShadowsIntensity * (1 - shadowFactor));
                 if (turbulence >= _FoamThreshold) emission = lerp(emission, _FoamColor, _FoamBlending);
