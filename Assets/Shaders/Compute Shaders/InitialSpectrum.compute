@@ -22,8 +22,8 @@ float _WindDirectionY;
 float _Gravity;
 float _Fetch;
 float _Depth;
-
-
+float _Fade;
+float _Swell;
 
 
 // Returns wave's angular frequency
@@ -52,7 +52,7 @@ float JONSWAP(float angularFrequency, float peakAngularFrequency){
     float oneOverFrequency = 1.0f / angularFrequency;
     float peakFrequencyOverFrequency = peakAngularFrequency / angularFrequency;
 
-    return TMACorrection(angularFrequency) * alpha * _Gravity * _Gravity * oneOverFrequency * oneOverFrequency * oneOverFrequency * oneOverFrequency * oneOverFrequency * exp(-1.25 * peakFrequencyOverFrequency * peakFrequencyOverFrequency * peakFrequencyOverFrequency * peakFrequencyOverFrequency) * pow(abs(gamma), r);
+    return alpha * _Gravity * _Gravity * oneOverFrequency * oneOverFrequency * oneOverFrequency * oneOverFrequency * oneOverFrequency * exp(-1.25 * peakFrequencyOverFrequency * peakFrequencyOverFrequency * peakFrequencyOverFrequency * peakFrequencyOverFrequency) * pow(abs(gamma), r);
 }
 
 // Returns s
@@ -68,15 +68,14 @@ float SpreadPower(float angularFrequency, float peakAngularFrequency){
 float NormalisationFactor(float s) {
 	float s2 = s * s;
 	float s3 = s2 * s;
-	float s4 = s3 * s;
-	if (s < 5) return -0.000564f * s4 + 0.00776f * s3 - 0.044f * s2 + 0.192f * s + 0.163f;
-	return -4.80e-08f * s4 + 1.07e-05f * s3 - 9.53e-04f * s2 + 5.90e-02f * s + 3.93e-01f;
+	if (s <= 0.4f) return 0.09f * s3 + (pow(log(2), 2)/PI - PI/12.0f) * s2 + log(2) / PI * s + 1/(2 * PI);
+    return sqrt(s) / (2.0f * sqrt(PI)) + 1 / (16.0f * sqrt(PI * s));
 }
 
 // Returns directional spread from given frequency and angle
 // https://www.sciencedirect.com/topics/engineering/directional-spreading
 float DirectionalSpread(float angularFrequency, float peakAngularFrequency, float theta){
-    float s = SpreadPower(angularFrequency, peakAngularFrequency) + 16 * tanh(min(angularFrequency / peakAngularFrequency, 20)) * 0.5f * 0.5f;
+    float s = SpreadPower(angularFrequency, peakAngularFrequency) + 16 * tanh(angularFrequency / peakAngularFrequency) * _Swell * _Swell;
     float2 normalizedWindDirection = normalize(float2(_WindDirectionX, _WindDirectionY));
     float windTheta = atan2(normalizedWindDirection.y, normalizedWindDirection.x);
 
@@ -114,7 +113,7 @@ void CalculateInitialSpectrumTexture (uint3 id : SV_DispatchThreadID)
             // The peak frequency is calculated here because we also need it for the directional spread
             float peakAngularFrequency = 22 * pow(abs(_Gravity * _Gravity/(_WindSpeed * _Fetch)), 0.3333f);
 
-            _InitialSpectrumTextures[uint3(id.xy, i)] = float4(float2(gaussianRandomNumber1, gaussianRandomNumber2) * sqrt(JONSWAP(angularFrequency, peakAngularFrequency) * DirectionalSpread(angularFrequency, peakAngularFrequency, kAngle) * ShortWavesFade(kMagnitude, 0.01f) * FrequencyDerivative(kMagnitude, angularFrequency) / kMagnitude * k * k), 0.0f, 0.0f);
+            _InitialSpectrumTextures[uint3(id.xy, i)] = float4(float2(gaussianRandomNumber1, gaussianRandomNumber2) * sqrt(2.0f * TMACorrection(angularFrequency) * JONSWAP(angularFrequency, peakAngularFrequency) * DirectionalSpread(angularFrequency, peakAngularFrequency, kAngle) * ShortWavesFade(kMagnitude, _Fade) * FrequencyDerivative(kMagnitude, angularFrequency) / kMagnitude * k * k) / 2.0f, 0.0f, 0.0f);
             // WavesData Texture contains information of the wave on each pixel
             // float4(direction on the x axis, 1/k for the FFT, direction on the z axis, wave frequency);
             _WavesDataTextures[uint3(id.xy, i)] = float4(kVector.x, 1/kMagnitude, kVector.y, angularFrequency);

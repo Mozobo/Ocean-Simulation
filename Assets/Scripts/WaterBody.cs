@@ -12,6 +12,8 @@ public class WaterBody : MonoBehaviour
     public float gravity = 9.81f;
     public float fetch = 1.0f;
     public float depth = 4.0f;
+    public float swell = 0.4f;
+    public float fade = 0.1f;
     // ---------------------------
 
     // Buoyancy parameters
@@ -129,6 +131,8 @@ public class WaterBody : MonoBehaviour
         initialSpectrumComputeShader.SetFloat("_Gravity", gravity);
         initialSpectrumComputeShader.SetFloat("_Fetch", fetch);
         initialSpectrumComputeShader.SetFloat("_Depth", depth);
+        initialSpectrumComputeShader.SetFloat("_Fade", fade);
+        initialSpectrumComputeShader.SetFloat("_Swell", swell);
 
         initialSpectrumComputeShader.SetTexture(KERNEL_CONJUGATED_SPECTRUM, "_InitialSpectrumTextures", initialSpectrumTextures);
     }
