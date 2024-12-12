@@ -11,8 +11,6 @@ public class MeshGenerator : MonoBehaviour
     // Reduces the number of vertices used to create a mesh of given size
     [SerializeField, Range(1, 100)]
     public int trianglesSize = 10;
-    private Vector3[] vertices;
-    private int[] triangles;
     private Mesh mesh;
 
     private void GenerateVertices(){
@@ -20,13 +18,11 @@ public class MeshGenerator : MonoBehaviour
         float halfLength = planeSize * 0.5f;
         float spacing = planeSize / (float)verticesPerRow;
 
-        vertices = new Vector3[(verticesPerRow + 1) * (verticesPerRow + 1)];
-        Vector3[] normals = new Vector3[(verticesPerRow + 1) * (verticesPerRow + 1)];
+        Vector3[] vertices = new Vector3[(verticesPerRow + 1) * (verticesPerRow + 1)];
 
 		for (int i = 0, z = 0; z <= verticesPerRow; z++) {
 			for (int x = 0; x <= verticesPerRow; x++, i++) {
 				vertices[i] = new Vector3((float)x * spacing - halfLength, 0, (float)z * spacing - halfLength);
-                normals[i] = Vector3.up;
 			}
 		}
 
@@ -35,7 +31,8 @@ public class MeshGenerator : MonoBehaviour
 
     private void GenerateTriangles(){
         int verticesPerRow = planeSize / trianglesSize;
-        triangles = new int[verticesPerRow  * verticesPerRow  * 6];
+        
+        int[] triangles = new int[verticesPerRow  * verticesPerRow  * 6];
 
 		for (int ti = 0, vi = 0, z = 0; z < verticesPerRow ; z++, vi++) {
 			for (int x = 0; x < verticesPerRow ; x++, ti += 6, vi++) {
@@ -57,6 +54,5 @@ public class MeshGenerator : MonoBehaviour
 
         GenerateVertices();
         GenerateTriangles();
-        mesh.RecalculateNormals();
     }
 }

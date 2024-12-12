@@ -103,11 +103,11 @@ Shader "Custom/Water" {
             float4 _CameraOpaqueTexture_TexelSize;
 
             struct VertexData {
-                float3 position : POSITION; // Object system
+                float3 positionOS : POSITION; // Object system
             };
 
             struct TessellationControlPoint {
-                float3 worldPos : INTERNALTESSPOS; // World System
+                float3 positionWS : INTERNALTESSPOS; // World System
                 float4 positionCS : SV_POSITION;
             };
 
@@ -117,11 +117,11 @@ Shader "Custom/Water" {
             };
 
             struct Vertex2FragmentData {
-                float4 screenPos : SV_Position;
+                float4 positionCS : SV_POSITION;
                 float3 viewDir : TEXCOORD0;
-                float3 worldPos : TEXCOORD1;
+                float3 positionWS : TEXCOORD1;
                 float2 worldUV : TEXCOORD2;
-                float4 grabPos: TEXCOORD3; // texture coordinate for sampling a GrabPass texure
+                float4 positionSS: TEXCOORD3; // texture coordinate for sampling a GrabPass texure
                 float lodLevel: TEXCOORD4;
             };
 
@@ -167,10 +167,10 @@ Shader "Custom/Water" {
             
             // For correct refractions, in the URP pipeline asset you have to enable both 'Depth Texture' and 'Opaque Texture'
             // Also set the Depth Priming Mode to Forced or the main camera will not render the scene correctly
-            float3 Refraction (float4 grabPos, float3 worldNormal) {
-                float2 uvOffset = worldNormal.xy * _RefractionStrength;
+            float3 UnderwaterView(float4 positionSS, float3 normalWS) {
+                float2 uvOffset = normalWS.xy * _RefractionStrength;
                 uvOffset.y *= _CameraOpaqueTexture_TexelSize.z * abs(_CameraOpaqueTexture_TexelSize.y);
-                float2 uv = (grabPos.xy + uvOffset) / grabPos.w;
+                float2 uv = (positionSS.xy + uvOffset) / positionSS.w;
 
                 #if UNITY_UV_STARTS_AT_TOP
                     if (_CameraOpaqueTexture_TexelSize.y < 0) {
@@ -179,11 +179,11 @@ Shader "Custom/Water" {
                 #endif
 
                 float backgroundDepth = LinearEyeDepth(SAMPLE_TEXTURE2D(_CameraDepthTexture, sampler_CameraDepthTexture, uv).r, _ZBufferParams);
-                float surfaceDepth = UNITY_Z_0_FAR_FROM_CLIPSPACE(grabPos.z);
+                float surfaceDepth = UNITY_Z_0_FAR_FROM_CLIPSPACE(positionSS.z);
                 float depthDifference = backgroundDepth - surfaceDepth;
 
                 if (depthDifference < 0) {
-                    uv = grabPos.xy / grabPos.w;
+                    uv = positionSS.xy / positionSS.w;
                     #if UNITY_UV_STARTS_AT_TOP
                         if (_CameraOpaqueTexture_TexelSize.y < 0) {
                             uv.y = 1 - uv.y;
@@ -198,71 +198,71 @@ Shader "Custom/Water" {
                 return lerp(_Color, backgroundColor, fogFactor);
             }
 
-            float NormalDistribution(float3 h, float3 normal, float3 viewDir, float roughness) {
+            float NormalDistribution(float3 h, float3 normalWS, float3 viewDir, float roughness) {
                 float alpha = roughness * roughness;
                 float alphaSquare = alpha * alpha;
-                float nDotH = saturate(dot(normal, h));
+                float nDotH = saturate(dot(normalWS, h));
                 
                 return alphaSquare / (max(M_PI * pow((nDotH * nDotH * (alphaSquare - 1.0f) + 1.0f), 2.0f), FLT_MIN));
             }
 
-            float SchlickBeckmannGS(float3 normal, float3 x, float roughness) {
+            float SchlickBeckmannGS(float3 normalWS, float3 x, float roughness) {
                 float k = roughness / 2.0f;
-                float nDotX = saturate(dot(normal, x));
+                float nDotX = saturate(dot(normalWS, x));
                 
                 return nDotX / (max((nDotX * (1.0f - k) + k), FLT_MIN));
             }
 
-            float GeometryShadowingFunction(float3 normal, float3 viewDir, float3 lightDir, float roughness) {
-                return SchlickBeckmannGS(normal, viewDir, roughness) * SchlickBeckmannGS(normal, lightDir, roughness);    
+            float GeometryShadowingFunction(float3 normalWS, float3 viewDir, float3 lightDir, float roughness) {
+                return SchlickBeckmannGS(normalWS, viewDir, roughness) * SchlickBeckmannGS(normalWS, lightDir, roughness);    
             }
 
-            float3 Reflections (float3 viewDir, float3 normal) {
+            float3 EnvironmentReflections (float3 viewDir, float3 normalWS) {
                 //float3 reflectionDir = viewDir.zyx;
-                float3 reflectionDir = normal;
+                float3 reflectionDir = normalWS;
                 float3 environment = SAMPLE_TEXTURECUBE(_ReflectionCubemap, sampler_ReflectionCubemap, reflectionDir);
                 return environment * M_PI * _ReflectionStrength;
             }
 
             // https://www.researchgate.net/publication/2523875_An_anisotropic_phong_BRDF_model
-            float3 AshikhminShirleyBRDF(float3 h, float3 v, float3 l, float3 n, float fresnel, float ex, float ey) {
-                if (dot(l, float3(0.0, 1.0, 0.0)) <= 0.0) return 0.0;
+            float3 AshikhminShirleyBRDF(float3 h, float3 viewDir, float3 lightDir, float3 normalWS, float fresnel, float ex, float ey) {
+                if (dot(lightDir, float3(0.0, 1.0, 0.0)) <= 0.0) return 0.0;
                 float cos2PhiH = max((h.x * h.x) / max(1.0 - h.z * h.z, FLT_MIN), 0.0);
                 float sin2PhiH = max((h.y * h.y) / max(1.0 - h.z * h.z, FLT_MIN), 0.0);
-                float d = sqrt((ex + 1) * (ey + 1)) * pow(max(dot(h, n), 0.0), ex * cos2PhiH + ey * sin2PhiH);
+                float d = sqrt((ex + 1) * (ey + 1)) * pow(max(dot(h, normalWS), 0.0), ex * cos2PhiH + ey * sin2PhiH);
 
-                float specular = max(d * fresnel / max(4 * M_PI * dot(h, v) * max(dot(n, v), dot(n, l)), FLT_MIN), 0.0);
+                float specular = max(d * fresnel / max(4 * M_PI * dot(h, viewDir) * max(dot(normalWS, viewDir), dot(normalWS, lightDir)), FLT_MIN), 0.0);
 
                 //float diffuse = max((28 / (23 * M_PI)) * (1 - fresnel) * (1 - pow(1 - 0.5 * dot(n, l), 5)) * (1 - pow(1 - 0.5 * dot(n, v), 5)), 0.0);
 
                 return _MainLightColor * specular;
             }
 
-            float3 CookTorranceBRDF(float3 h, float3 normal, float3 viewDir, float3 lightDirection, float fresnel, float roughness) {
-                if (dot(lightDirection, float3(0.0, 1.0, 0.0)) <= 0.0) return 0.0;
-                float normalDistribution = max(NormalDistribution(h, normal, viewDir, roughness), 0.0);
-                float geometryFunction = max(GeometryShadowingFunction(normal, viewDir, lightDirection, roughness), 0.0);
+            float3 CookTorranceBRDF(float3 h, float3 normalWS, float3 viewDir, float3 lightDir, float fresnel, float roughness) {
+                if (dot(lightDir, float3(0.0, 1.0, 0.0)) <= 0.0) return 0.0;
+                float normalDistribution = max(NormalDistribution(h, normalWS, viewDir, roughness), 0.0);
+                float geometryFunction = max(GeometryShadowingFunction(normalWS, viewDir, lightDir, roughness), 0.0);
 
                 // https://rtarun9.github.io/blogs/physically_based_rendering/#what-is-physically-based-rendering
-                return _MainLightColor * normalDistribution * geometryFunction / max(8.0f * saturate(dot(viewDir, normal)) * saturate(dot(lightDirection, normal)), FLT_MIN);
+                return _MainLightColor * normalDistribution * geometryFunction / max(4.0f * saturate(dot(viewDir, normalWS)) * saturate(dot(lightDir, normalWS)), FLT_MIN);
             }
 
-            float3 SubsurfaceScatteringApproximation(float waveHeight, float3 lightDirection, float3 viewDir, float3 halfVec) {
-                float coeff = _SubsurfaceScatteringIntensity * max(0, waveHeight) * pow(max(0, dot(lightDirection, viewDir)), 4);
+            float3 SubsurfaceScatteringApproximation(float waveHeight, float3 lightDir, float3 viewDir) {
+                float coeff = _SubsurfaceScatteringIntensity * max(0, waveHeight) * pow(max(0, dot(lightDir, viewDir)), 4);
                 return coeff * _SubsurfaceScatteringColor * _MainLightColor;
                 // return coeff * _Color * _MainLightColor;
             }
 
-            TessellationControlPoint Vertex(VertexData vertex) {
+            TessellationControlPoint Vertex(VertexData input) {
                 TessellationControlPoint output;
-                VertexPositionInputs posInputs = GetVertexPositionInputs(vertex.position);
-                output.worldPos = posInputs.positionWS;
+                VertexPositionInputs posInputs = GetVertexPositionInputs(input.positionOS);
+                output.positionWS = posInputs.positionWS;
                 output.positionCS = posInputs.positionCS;
                 return output;
             }
 
-            float DistanceBasedTessFactor (float3 vertex, float minDist, float maxDist, float tess) {
-                float dist = distance (vertex.xyz, _WorldSpaceCameraPos);
+            float DistanceBasedTessFactor (float3 positionWS, float minDist, float maxDist, float tess) {
+                float dist = distance (positionWS.xyz, _WorldSpaceCameraPos);
                 float normalizedDist = saturate((dist - minDist) / (maxDist - minDist));
                 float decayFactor = exp(-_TesselationDecayFactor * normalizedDist);
                 float f = saturate(decayFactor) * tess;
@@ -304,9 +304,9 @@ Shader "Custom/Water" {
                 if (ShouldClipPatch(patch[0].positionCS, patch[1].positionCS, patch[2].positionCS)) {
                     f.edge[0] = f.edge[1] = f.edge[2] = f.inside = 0; // Cull the patch
                 } else {
-                    float3 edgePosition0 = 0.5 * (patch[1].worldPos + patch[2].worldPos);
-                    float3 edgePosition1 = 0.5 * (patch[0].worldPos + patch[2].worldPos);
-                    float3 edgePosition2 = 0.5 * (patch[0].worldPos + patch[1].worldPos);
+                    float3 edgePosition0 = 0.5 * (patch[1].positionWS + patch[2].positionWS);
+                    float3 edgePosition1 = 0.5 * (patch[0].positionWS + patch[2].positionWS);
+                    float3 edgePosition2 = 0.5 * (patch[0].positionWS + patch[1].positionWS);
 
                     f.edge[0] = DistanceBasedTessFactor(edgePosition0, 1, _MaxTesselationDistance, _TesselationLevel);
                     f.edge[1] = DistanceBasedTessFactor(edgePosition1, 1, _MaxTesselationDistance, _TesselationLevel);
@@ -338,21 +338,21 @@ Shader "Custom/Water" {
             // The barycentric coordinates of the vertex on the triangle
             Vertex2FragmentData Domain(TessellationFactors factors, OutputPatch<TessellationControlPoint, 3> patch, float3 barycentricCoordinates : SV_DomainLocation) {
                 Vertex2FragmentData output;
-                output.worldPos = BARYCENTRIC_INTERPOLATE(worldPos);
-                output.worldUV = output.worldPos.xz;
+                output.positionWS = BARYCENTRIC_INTERPOLATE(positionWS);
+                output.worldUV = output.positionWS.xz;
 
-                float lodFactor = distance(output.worldPos, _WorldSpaceCameraPos) / _MaxTesselationDistance;
+                float lodFactor = distance(output.positionWS, _WorldSpaceCameraPos) / _MaxTesselationDistance;
                 output.lodLevel = lerp(0.0, _MaxLODLevel, lodFactor);
 
                 float3 displacement = 0;
                 for (int i = 0; i < _NbCascades; i++) {
                     displacement += SAMPLE_TEXTURE2D_ARRAY_LOD(_DisplacementsTextures, sampler_DisplacementsTextures, output.worldUV / _WaveLengths[i], i, output.lodLevel);
                 }
-                output.worldPos += mul(unity_ObjectToWorld, displacement);
+                output.positionWS += mul(unity_ObjectToWorld, displacement);
 
-                output.screenPos = TransformWorldToHClip(output.worldPos);
-                output.grabPos = ComputeScreenPos(output.screenPos);
-                output.viewDir = normalize(_WorldSpaceCameraPos - output.worldPos);
+                output.positionCS = TransformWorldToHClip(output.positionWS);
+                output.positionSS = ComputeScreenPos(output.positionCS);
+                output.viewDir = normalize(_WorldSpaceCameraPos - output.positionWS);
 
                 return output;
             }
@@ -364,8 +364,8 @@ Shader "Custom/Water" {
                 }
 
                 float2 slope = float2(derivatives.x / (1 + derivatives.z), derivatives.y / (1 + derivatives.w));
-                float3 objectNormal = normalize(float3(-slope.x, 1, -slope.y));
-                float3 worldNormal = normalize(TransformObjectToWorldNormal(objectNormal));
+                float3 normalOS = normalize(float3(-slope.x, 1, -slope.y));
+                float3 normalWS = normalize(TransformObjectToWorldNormal(normalOS));
 
                 float turbulence = 0;
                 for (int i = 0; i < _NbCascades; i++) {
@@ -376,27 +376,28 @@ Shader "Custom/Water" {
                 float3 H = normalize(input.viewDir + lightDirection);
 
                 float R0 = pow((AIR_REFRACTION_INDEX - WATER_REFRACTION_INDEX) / (AIR_REFRACTION_INDEX + WATER_REFRACTION_INDEX), 2);
-                float fresnel = R0 + (1 - R0) * pow(1.0 - saturate(dot(worldNormal, input.viewDir)), 5 * exp(-2.69*_Roughness)) / (1 + 22.7 * pow(_Roughness, 1.5));
+                float fresnel = R0 + (1 - R0) * pow(1.0 - saturate(dot(normalWS, input.viewDir)), 5 * exp(-2.69*_Roughness)) / (1 + 22.7 * pow(_Roughness, 1.5));
                 float fresnelH = R0 + (1 - R0) * pow(1.0 - saturate(dot(H, input.viewDir)), 5);
 
                 // The shadow coords are computed in the fragment stage because if computed in the domain, the borders between shadow cascades appear as shadows
-                float4 shadowCoord = TransformWorldToShadowCoord(input.worldPos); 
+                float4 shadowCoord = TransformWorldToShadowCoord(input.positionWS); 
                 float shadowFactor = MainLightRealtimeShadow(shadowCoord);
 
-                float3 refraction = Refraction(input.grabPos, worldNormal);
-                refraction += SubsurfaceScatteringApproximation(input.worldPos.y, lightDirection, -input.viewDir, H);
-                float3 reflection = Reflections(input.viewDir, worldNormal);
+                float3 refraction = UnderwaterView(input.positionSS, normalWS);
+                refraction += SubsurfaceScatteringApproximation(input.positionWS.y, lightDirection, -input.viewDir);
+
+                float3 reflections = EnvironmentReflections(input.viewDir, normalWS);
                 
-                float dynamicRoughness = lerp(_Roughness, _Roughness * 1.5, pow(1.0 - abs(worldNormal.y), 2.0));
+                float dynamicRoughness = lerp(_Roughness, _Roughness * 1.5, pow(1.0 - abs(normalWS.y), 2.0));
                 float nu = _EX * 100.0 * (1.0 - dynamicRoughness); // Controls anisotropy along x-axis
                 float nv = _EY * 10.0 * (1.0 - dynamicRoughness);  // Controls anisotropy along z-axis
-                float3 ashikhminShirleySpec = AshikhminShirleyBRDF(H, input.viewDir, lightDirection, worldNormal, fresnelH, nu, nv);
-                float3 cookTorranceSpec = CookTorranceBRDF(H, worldNormal, input.viewDir, lightDirection, fresnelH, dynamicRoughness);
+                float3 ashikhminShirleySpec = AshikhminShirleyBRDF(H, input.viewDir, lightDirection, normalWS, fresnelH, nu, nv);
+                float3 cookTorranceSpec = CookTorranceBRDF(H, normalWS, input.viewDir, lightDirection, fresnelH, dynamicRoughness);
 
                 // Blending factor based on view angle, adding Ashikhmin-Shirley at flatter angles
-                reflection += (cookTorranceSpec + ashikhminShirleySpec * saturate(dot(input.viewDir, worldNormal))) * shadowFactor;
+                reflections += (cookTorranceSpec + ashikhminShirleySpec * saturate(dot(input.viewDir, normalWS))) * shadowFactor;
 
-                float3 emission = lerp(lerp(refraction, reflection, fresnel), _ShadowsColor, _ShadowsIntensity * (1 - shadowFactor));
+                float3 emission = lerp(lerp(refraction, reflections, fresnel), _ShadowsColor, _ShadowsIntensity * (1 - shadowFactor));
                 if (turbulence >= _FoamThreshold) emission = lerp(emission, _FoamColor, _FoamBlending);
 
                 return float4(emission, 1.0f);

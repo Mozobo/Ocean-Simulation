@@ -41,15 +41,15 @@ public class WaterBody : MonoBehaviour
     private RenderTexture DyxDyzTextures;
     private RenderTexture DxxDzzTextures;
 
-    public WaterCascade[] cascades;
+    private RenderTexture displacementsTextures;
+    private RenderTexture derivativesTextures;
+    private RenderTexture turbulenceTextures;
 
+    public WaterCascade[] cascades;
     private float[] waveLengths;
     ComputeBuffer waveLengthsBuffer;
     private float[] cutoffs;
     ComputeBuffer cutoffsBuffer;
-    private RenderTexture displacementsTextures;
-    private RenderTexture derivativesTextures;
-    private RenderTexture turbulenceTextures;
 
     private Color[] buoyancyData;
 
