@@ -122,7 +122,7 @@ Shader "Custom/Water" {
                 float3 positionWS : TEXCOORD1;
                 float2 worldUV : TEXCOORD2;
                 float4 positionSS: TEXCOORD3; // texture coordinate for sampling a GrabPass texure
-                float lodLevel: TEXCOORD4;
+                half lodLevel: TEXCOORD4;
             };
 
             // Variables with value provided by us (Through code or through Unity's interface)

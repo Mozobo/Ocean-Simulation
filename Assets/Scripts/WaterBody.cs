@@ -283,5 +283,33 @@ public class WaterBody : MonoBehaviour
         cutoffsBuffer.Release();
         cutoffsBuffer = null;
 	}
+
+    /* 
+    OnValidate() is a Unity Editor function that is called after these scenarios:
+        - A public or serialized field of a MonoBehaviour is modified in the Inspector
+        - Script recompilation
+        - A component containing the OnValidate function is added to a GameObject
+        - A scene is loaded in the Unity Editor
+    The purpose of this OnValidate is to provide a (not very good written, but functional) real-time reflection of ocean parameters changes within the Unity Editor.
+    This means it only responds to changes made through the Editor’s Inspector. 
+    If you need to reflect changes made programmatically at runtime, consider using a getter/setter approach as explained in
+    https://discussions.unity.com/t/running-a-function-after-any-variable-has-changed/732103/3
+
+    It can significantly impact performance, so use it only when real-time updates are necessary.
+    */
+    /*void OnValidate() {
+        // Ensure textures are initialized before recalculating, as OnValidate may run before textures and Compute Shaders are fully set
+        if (initialSpectrumTextures != null){
+            initialSpectrumComputeShader.SetFloat("_WindSpeed", windSpeed);
+            initialSpectrumComputeShader.SetFloat("_WindDirectionX", windDirection.x);
+            initialSpectrumComputeShader.SetFloat("_WindDirectionY", windDirection.y);
+            initialSpectrumComputeShader.SetFloat("_Gravity", gravity);
+            initialSpectrumComputeShader.SetFloat("_Fetch", fetch);
+            initialSpectrumComputeShader.SetFloat("_Depth", depth);
+            initialSpectrumComputeShader.SetFloat("_Fade", fade);
+            initialSpectrumComputeShader.SetFloat("_Swell", swell);
+            CalculateInitialSpectrumTextures();
+        }
+    }*/
     
 }

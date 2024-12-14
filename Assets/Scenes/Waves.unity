@@ -469,7 +469,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cutoffHigh: 10000000
   cutoffLow: 0.0001
-  waveLength: 100
+  waveLength: 1000
 --- !u!1 &260698683
 GameObject:
   m_ObjectHideFlags: 0
@@ -1232,11 +1232,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8144eb6a18adf2041be09adb818c8470, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  windSpeed: 5
+  windSpeed: 10
   windDirection: {x: 1, y: -1}
   gravity: 9.81
   fetch: 50000
-  depth: 256
+  depth: 2560
+  swell: 0.5
+  fade: 0.1
   density: 1
   drag: 10
   angularDrag: 1
@@ -1361,7 +1363,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cutoffHigh: 1e+12
   cutoffLow: 0.000000001
-  waveLength: 153
+  waveLength: 1530
 --- !u!1 &1634312897
 GameObject:
   m_ObjectHideFlags: 0
@@ -1616,7 +1618,7 @@ Transform:
   m_GameObject: {fileID: 1671475455}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 50, y: -10, z: 50}
+  m_LocalPosition: {x: 73.1, y: -10, z: 50}
   m_LocalScale: {x: 13.70228, y: 1.2456619, z: 13.70228}
   m_ConstrainProportionsScale: 0
   m_Children: []
