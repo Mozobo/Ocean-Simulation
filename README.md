@@ -2,6 +2,9 @@
 
 Real-time rendering of realistic ocean-like water surfaces using the Inverse Fast Fourier Transform (IFFT), in combination with the Joint North Sea Wave Project (JONSWAP) spectrum and the Texel-Marsen-Arsloe (TMA) modification, within Unity's Universal Render Pipeline (URP).
 
+> [!NOTE]  
+> An image or video showcasing the ocean will be added here.
+
 ## Table of contents
 
 - [Mesh generation](#mesh-generation)
@@ -23,6 +26,13 @@ The first step is to generate a mesh that forms the base of the water body. In t
 > [!IMPORTANT]  
 > The plane is created at the start of the execution and modifying plane size and triangle size at run-time will not change it. Only changes in position, rotation and scale will be reflected.
 
+<img src="https://github.com/user-attachments/assets/39e73ab3-db44-4682-a9ea-aca59c19caf8" alt="MeshExample1" width="49.5%"/> <img src="https://github.com/user-attachments/assets/4cc2ce08-c568-4bd6-a4ad-c83c1ff8d334" alt="MeshExample2" width="49.5%"/>
+
+<p align="center" size="12">Wireframes of 10000 x 10000 planes with triangles size 25 (left) and 50 (right).</p>
+
+![MeshExample3](https://github.com/user-attachments/assets/697679d0-7f58-44a3-9504-9d263c1c180c)
+
+<p align="center">Shaded plane in both resolutions.</p>
 
 ## Ocean spectrum
 ## IFFT
