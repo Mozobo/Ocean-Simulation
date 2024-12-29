@@ -35,6 +35,82 @@ The first step is to generate a mesh that forms the base of the water body. In t
 <p align="center">Shaded plane in both resolutions.</p>
 
 ## Ocean spectrum
+
+The method detailed by [Tessendorf](https://www.researchgate.net/publication/264839743_Simulating_Ocean_Water) is used to generate realistic ocean waves. Instead of using the Phillips spectrum, a more physically accurate choice is the TMA spectrum explained by [Horvath](https://dl.acm.org/doi/10.1145/2791261.2791267). The TMA spectrum extends the [JONSWAP](https://wikiwaves.org/Ocean-Wave_Spectra#JONSWAP_Spectrum) spectrum, which models wind-driven waves in deep water, and adjusts it for the effects of shallow water.
+
+The key parameters for the spectrum are:
+- $`U_{10}`$: wind speed at a height of 10m above the sea surface.
+- $`\theta_{wind}`$: wind direction.
+- $`g`$: gravitational acceleration.
+- $`F`$: fetch, distance from a lee shore or the distance over which the wind acts on the surface.
+- $`D`$: water depth.
+
+The TMA spectrum begins with the [JONSWAP](https://wikiwaves.org/Ocean-Wave_Spectra#JONSWAP_Spectrum) spectrum, defined as:
+
+```math
+\alpha=0.076\left( \frac{U_{10}^{2}}{Fg} \right)^{0.22}
+```
+```math
+\gamma=3.3
+```
+```math
+\omega_p=22\left(\frac{g^2}{U_{10}F}\right)^{1/3}
+```
+```math
+r = exp\left[ -\frac{(\omega - \omega_{p})^{2}}{2\sigma^{2}\omega_{p}^{2}} \right]
+```
+```math
+\sigma = \begin{cases} 0.07 & \omega \le \omega_p \\ 0.09 & \omega \gt  \omega_p \end{cases}
+```
+```math
+S_{JONSWAP}(\omega) =\frac{\alpha g^{2}}{\omega^{5}}exp\left[ -\frac{5}{4} \left( \frac{\omega_{p}}{\omega} \right)^{4} \right]\gamma^{r}
+```
+
+And modifies it to account for shallow water effects using a depth-limiting factor $\Phi(\omega)$:
+
+```math
+\omega_{h} = \omega\sqrt{\frac{D}{g}}
+```
+```math
+\Phi(\omega) = \frac{1}{2}w_{h}^{2} + (-w_{h}^{2} + 2w_{h} - 1) · step(w_{h} - 1)
+```
+```math
+S_{TMA}(\omega) = S_{JONSWAP}(\omega) * \Phi(\omega)
+```
+
+To simulate realistic [directional spreading](https://www.sciencedirect.com/topics/engineering/directional-spreading), the wave energy distribution across angles $\theta$ and frequencies $\omega$ is calculated:
+
+```math
+s = \begin{cases} 6.97\left( \frac{\omega}{\omega_{p}} \right)^{4.06} & \omega \lt 1.05\omega_p \\ 9.77\left( \frac{\omega}{\omega_{p}} \right)^{\mu} & \omega \ge  1.05\omega_p \end{cases} \space + \space 16tanh(\frac{\omega}{\omega_{p}}) · swell^{2}
+```
+```math
+\mu = -2.33 - 1.45\left( \frac{U_{10}\omega_{p}}{g} - 1.17 \right)
+```
+```math
+D(\omega, \theta) = Q(s)cos^{2s}\left\{ \frac{\left| \theta - \theta_{wind} \right|}{2} \right\}
+```
+
+Here, the swell parameter enhances low-frequency energy contributions, capturing the effect of long-period waves.
+
+To suppress small-amplitude, high-frequency waves that add negligible visual or physical effects, [Tessendorf](https://www.researchgate.net/publication/264839743_Simulating_Ocean_Water)'s factor is applied:
+
+```math
+exp(-k^{2}fade^{2})
+```
+
+The complete directional ocean spectrum is given by:
+```math
+S(\omega, \theta) = S_{TMA}(\omega) · D(\omega, \theta) · exp(-k^{2}fade^{2})
+```
+
+The result of this calculation, implemented in the ```WaterBody.cs``` script and the ```InitialSpectrum.compute``` compute shader, is a texture representing wave energy values distributed across frequencies and directions:
+
+> [!NOTE]  
+> An image of the resulting texture will be added here.
+
+This texture encodes the energy distribution of various wave components. Each value corresponds to a specific combination of frequency and direction, defining the amplitude of a wave in the frequency domain. These amplitudes are then transformed via an IFFT to compute the time-domain surface height and motion of the waves.
+
+
 ## IFFT
 ## Shader
 ## Buoyancy
