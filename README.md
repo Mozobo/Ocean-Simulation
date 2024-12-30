@@ -28,7 +28,7 @@ The first step is to generate a mesh that forms the base of the water body. In t
 
 <img src="https://github.com/user-attachments/assets/39e73ab3-db44-4682-a9ea-aca59c19caf8" alt="MeshExample1" width="49.5%"/> <img src="https://github.com/user-attachments/assets/4cc2ce08-c568-4bd6-a4ad-c83c1ff8d334" alt="MeshExample2" width="49.5%"/>
 
-<p align="center" size="12">Wireframes of 10000 x 10000 planes with triangles size 25 (left) and 50 (right).</p>
+<p align="center">Wireframes of 10000 x 10000 planes with triangles size 25 (left) and 50 (right).</p>
 
 ![MeshExample3](https://github.com/user-attachments/assets/697679d0-7f58-44a3-9504-9d263c1c180c)
 
@@ -103,10 +103,20 @@ The complete directional ocean spectrum is given by:
 S(\omega, \theta) = S_{TMA}(\omega) · D(\omega, \theta) · exp(-k^{2}fade^{2})
 ```
 
-The result of this calculation, implemented in the ```WaterBody.cs``` script and the ```InitialSpectrum.compute``` compute shader, is a texture representing wave energy values distributed across frequencies and directions:
+The result of the Fourier amplitudes calculation, implemented in the ```WaterBody.cs``` script and the ```InitialSpectrum.compute``` compute shader, is a texture representing wave energy values distributed across frequencies and directions:
 
-> [!NOTE]  
-> An image of the resulting texture will be added here.
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/615e731b-0309-4c79-a711-793efbc788a7" alt="RedChannel"/>
+  <img src="https://github.com/user-attachments/assets/2c00fb19-38ac-468e-8fa5-2e428cc3307c" alt="GreenChannel"/>
+</p>
+<p align="center">Red and green channels of the resulting texture (brightness multiplied by 5 for clearer visibility).</p>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/3a3212a3-69c0-4a63-8793-0f1a24193d0c" alt="BlueChannel"/>
+  <img src="https://github.com/user-attachments/assets/ce3a30c1-234c-4a51-afb5-80bbd3703497" alt="AlphaChannel"/>
+</p>
+<p align="center">Blue and alpha channels of the resulting texture (brightness multiplied by 5 for clearer visibility).</p>
+
 
 This texture encodes the energy distribution of various wave components. Each value corresponds to a specific combination of frequency and direction, defining the amplitude of a wave in the frequency domain. These amplitudes are then transformed via an IFFT to compute the time-domain surface height and motion of the waves.
 
