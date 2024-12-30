@@ -64,7 +64,7 @@ public class WaterBody : MonoBehaviour
 
     // Generates a random number from a Normal Distribution N(0, 1)
     // Extracted from: https://www.alanzucconi.com/2015/09/16/how-to-sample-from-a-gaussian-distribution/
-    private float GenerateRandomNumber(){
+    private float GenerateRandomNumber() {
             float v1, v2, s;
             do {
                 v1 = 2.0f * Random.Range(0f,1f) - 1.0f;
@@ -79,7 +79,7 @@ public class WaterBody : MonoBehaviour
     // Generates a 2D Texture where each pixel contains a Vector4, x and y are random numbers from -1 to 1 and z and w are 0
     // This texture is generated on the CPU because we don't need to generate new random noise when the ocean parameters change
     // So this texture is generated only once and at the start of the game execution
-    private void GenerateRandomNoiseTexture(){
+    private void GenerateRandomNoiseTexture() {
         Texture2D noiseTexture = new Texture2D(texturesSize, texturesSize, TextureFormat.RGFloat, false, true);
 
         noiseTexture.filterMode = FilterMode.Point;
@@ -95,9 +95,13 @@ public class WaterBody : MonoBehaviour
         randomNoiseTexture = noiseTexture;
     }
 
-    private RenderTexture CreateRenderTextureArray(int arrayDepth, RenderTextureFormat format, bool useMips){
+    // Creates a RenderTexture object configured as a 2D texture array that containts a specified number of textures with the specified format
+    // https://docs.unity3d.com/6000.0/Documentation/ScriptReference/RenderTexture.html
+    private RenderTexture CreateRenderTextureArray(int arrayDepth, RenderTextureFormat format, bool useMips) {
         RenderTexture rt = new RenderTexture(texturesSize, texturesSize, 0, format, RenderTextureReadWrite.Linear);
-        rt.dimension = UnityEngine.Rendering.TextureDimension.Tex2DArray;
+        // This is key for the RenderTexture object to behave like an array of textures instead of a single render texture
+        // https://docs.unity3d.com/6000.0/Documentation/ScriptReference/Rendering.TextureDimension.html
+        rt.dimension = TextureDimension.Tex2DArray;
         rt.volumeDepth = arrayDepth;
         rt.useMipMap = useMips;
         rt.autoGenerateMips = false;
@@ -109,18 +113,20 @@ public class WaterBody : MonoBehaviour
         return rt;
     }
 
+    // https://docs.unity3d.com/6000.0/Documentation/ScriptReference/RenderTextureFormat.RGFloat.html
     private RenderTexture CreateRGRenderTextureArray(int arrayDepth, bool useMips = false) {
         return CreateRenderTextureArray(arrayDepth, RenderTextureFormat.RGFloat, useMips);
     }
 
+    // https://docs.unity3d.com/6000.0/Documentation/ScriptReference/RenderTextureFormat.ARGBFloat.html
     private RenderTexture CreateRGBARenderTextureArray(int arrayDepth, bool useMips = false) {
         return CreateRenderTextureArray(arrayDepth, RenderTextureFormat.ARGBFloat, useMips);
     }
 
-    private void InitializeInitialSpectrumComputeShader(){
+    private void InitializeInitialSpectrumComputeShader() {
         initialSpectrumComputeShader.SetInt("_TextureSize", texturesSize);
         initialSpectrumComputeShader.SetInt("_NbCascades", cascades.Length);
-        initialSpectrumComputeShader.SetTexture(KERNEL_INITIAL_SPECTRUM, "_RandomNoise", randomNoiseTexture);
+        initialSpectrumComputeShader.SetTexture(KERNEL_INITIAL_SPECTRUM, "_RandomNoiseTexture", randomNoiseTexture);
         initialSpectrumComputeShader.SetTexture(KERNEL_INITIAL_SPECTRUM, "_InitialSpectrumTextures", initialSpectrumTextures);
         initialSpectrumComputeShader.SetTexture(KERNEL_INITIAL_SPECTRUM, "_WavesDataTextures", wavesDataTextures);
         initialSpectrumComputeShader.SetBuffer(KERNEL_INITIAL_SPECTRUM, "_WaveLengths", waveLengthsBuffer);
@@ -137,7 +143,7 @@ public class WaterBody : MonoBehaviour
         initialSpectrumComputeShader.SetTexture(KERNEL_CONJUGATED_SPECTRUM, "_InitialSpectrumTextures", initialSpectrumTextures);
     }
 
-    private void InitializeTimeDependentSpectrumComputeShader(){
+    private void InitializeTimeDependentSpectrumComputeShader() {
         timeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_ConjugatedInitialSpectrumTextures", initialSpectrumTextures);
         timeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_WavesDataTextures", wavesDataTextures);
         timeDependentSpectrumComputeShader.SetInt("_NbCascades", cascades.Length);
@@ -147,7 +153,7 @@ public class WaterBody : MonoBehaviour
         timeDependentSpectrumComputeShader.SetTexture(KERNEL_TIME_DEPENDENT_SPECTRUM, "_DxxDzzTextures", DxxDzzTextures);
     }
 
-    private void InitializeResultTexturesFillerComputeShader(){
+    private void InitializeResultTexturesFillerComputeShader() {
         resultTexturesFillerComputeShader.SetInt("_NbCascades", cascades.Length);
         resultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_DxDzTextures", DxDzTextures);
         resultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_DyDxzTextures", DyDxzTextures);
@@ -158,7 +164,7 @@ public class WaterBody : MonoBehaviour
         resultTexturesFillerComputeShader.SetTexture(KERNEL_RESULT_TEXTURES_FILLER, "_TurbulenceTextures", turbulenceTextures);
     }
 
-    private void CalculateInitialSpectrumTextures(){
+    private void CalculateInitialSpectrumTextures() {
         // Calculate the initial spectrum H0(K)
         initialSpectrumComputeShader.Dispatch(KERNEL_INITIAL_SPECTRUM, texturesSize/LOCAL_WORK_GROUPS_X, texturesSize/LOCAL_WORK_GROUPS_Y, 1);
 
@@ -196,13 +202,13 @@ public class WaterBody : MonoBehaviour
         return buoyancyData[index].g;
     }
 
-    void Awake(){
+    void Awake() {
         GenerateRandomNoiseTexture();
 
         IFFT = new IFFT(IFFTComputeShader, texturesSize, cascades.Length);
 
-        KERNEL_INITIAL_SPECTRUM = initialSpectrumComputeShader.FindKernel("CalculateInitialSpectrumTexture");
-        KERNEL_CONJUGATED_SPECTRUM = initialSpectrumComputeShader.FindKernel("CalculateConjugatedInitialSpectrumTexture");
+        KERNEL_INITIAL_SPECTRUM = initialSpectrumComputeShader.FindKernel("CalculateInitialSpectrumTextures");
+        KERNEL_CONJUGATED_SPECTRUM = initialSpectrumComputeShader.FindKernel("CalculateConjugatedInitialSpectrumTextures");
         KERNEL_TIME_DEPENDENT_SPECTRUM = timeDependentSpectrumComputeShader.FindKernel("CalculateTimeDependentComplexAmplitudesAndDerivatives");
         KERNEL_RESULT_TEXTURES_FILLER = resultTexturesFillerComputeShader.FindKernel("FillResultTextures");
 
@@ -262,7 +268,7 @@ public class WaterBody : MonoBehaviour
         material.SetFloatArray("_WaveLengths", waveLengths);
     }
 
-    void Update(){
+    void Update() {
         CalculateWavesTexturesAtTime(Time.time);
 
         AsyncGPUReadback.Request(displacementsTextures, 0, request => {
@@ -276,8 +282,8 @@ public class WaterBody : MonoBehaviour
         });
     }
 
-    /* Prevent leaks from the Buffers */
-    void OnDisable () {
+    // Prevent leaks from the Buffers
+    void OnDisable() {
 		waveLengthsBuffer.Release();
         waveLengths = null;
         cutoffsBuffer.Release();
