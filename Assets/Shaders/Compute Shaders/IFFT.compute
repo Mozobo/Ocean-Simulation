@@ -4,34 +4,36 @@
 #pragma kernel VerticalStepIFFT
 #pragma kernel Permute
 
-// Create a RenderTexture with enableRandomWrite flag and set it
-// with cs.SetTexture
-
 static const float PI = 3.14159265;
 
+uint _NbCascades;
+uint _TextureSize;
 
 RWTexture2D<float4> _TwiddleFactorsAndInputIndicesTexture;
-uint _NbCascades;
 RWTexture2DArray<float2> _InputTextures;
 RWTexture2DArray<float2> _PingPongTextures;
-uint _TextureSize;
+
 bool _PingPong;
 uint _Step;
 
-
-float2 ComplexMult(float2 a, float2 b){
+// Multiplication of two complex numbers
+// https://mathworld.wolfram.com/ComplexMultiplication.html
+float2 ComplexMult(float2 a, float2 b) {
 	return float2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x);
 }
 
-float2 ComplexExp(float2 a){
-	return float2(cos(a.y), sin(a.y)) * exp(a.x);
+// e to the power of a complex number
+// e^(x + iy) = e^x * e^iy = e^x * (cos(y) + i*sin(y))
+// https://en.wikipedia.org/wiki/Euler%27s_formula
+float2 ComplexExp(float2 a) {
+	return exp(a.x) * float2(cos(a.y), sin(a.y));
 }
 
-// This is also called the "Butterfly Texture"
-// It contains the twiddle factors and input indices to perform the "butterfly operations" of the Cooley-Tukey algorithm
-// https://en.wikipedia.org/wiki/Butterfly_diagram
+// Computes the "Butterfly Texture", which contains the twiddle factors and input indices required for the "butterfly operations" in the Cooley-Tukey algorithm.
+// https://doi.org/10.15480/882.1436 ("4.2.6 Butterfly Texture" section)
+// https://en.wikipedia.org/wiki/Butterfly_diagram ("Twiddle Factor" section)
 // https://www.tutorialspoint.com/digital_signal_processing/dsp_discrete_time_frequency_transform.htm
-// https://github.com/gasgiant/FFT-Ocean/blob/main/Assets/ComputeShaders/FastFourierTransform.compute
+// Code source: https://github.com/gasgiant/FFT-Ocean/blob/main/Assets/ComputeShaders/FastFourierTransform.compute
 [numthreads(1, 8, 1)]
 void PrecomputeTwiddleFactorsAndInputIndices(uint3 id : SV_DispatchThreadID) {
 	uint b = _TextureSize >> (id.x + 1);
@@ -42,29 +44,34 @@ void PrecomputeTwiddleFactorsAndInputIndices(uint3 id : SV_DispatchThreadID) {
 	_TwiddleFactorsAndInputIndicesTexture[uint2(id.x, id.y + _TextureSize / 2)] = float4(-twiddle.x, -twiddle.y, i, i + b);
 }
 
+// Code source: https://github.com/gasgiant/FFT-Ocean/blob/main/Assets/ComputeShaders/FastFourierTransform.compute
 [numthreads(8, 8, 1)]
-void HorizontalStepIFFT(uint3 id : SV_DispatchThreadID){
+void HorizontalStepIFFT(uint3 id : SV_DispatchThreadID) {
 	float4 data = _TwiddleFactorsAndInputIndicesTexture[uint2(_Step, id.x)];
-	uint2 inputsIndices = (uint2)data.ba;
+	float2 twiddleFactors = float2(data.r, -data.g);
+	uint2 inputIndices = (uint2)data.ba;
 	for (uint i = 0; i < _NbCascades; ++i) {
-		if (!_PingPong) _PingPongTextures[uint3(id.xy, i)] = _InputTextures[uint3(inputsIndices.x, id.y, i)] + ComplexMult(float2(data.r, -data.g), _InputTextures[uint3(inputsIndices.y, id.y, i)]);
-		else _InputTextures[uint3(id.xy, i)] = _PingPongTextures[uint3(inputsIndices.x, id.y, i)] + ComplexMult(float2(data.r, -data.g), _PingPongTextures[uint3(inputsIndices.y, id.y, i)]);
+		if (!_PingPong) _PingPongTextures[uint3(id.xy, i)] = _InputTextures[uint3(inputIndices.x, id.y, i)] + ComplexMult(twiddleFactors, _InputTextures[uint3(inputIndices.y, id.y, i)]);
+		else _InputTextures[uint3(id.xy, i)] = _PingPongTextures[uint3(inputIndices.x, id.y, i)] + ComplexMult(twiddleFactors, _PingPongTextures[uint3(inputIndices.y, id.y, i)]);
 	}
 }
 
+// Code source: https://github.com/gasgiant/FFT-Ocean/blob/main/Assets/ComputeShaders/FastFourierTransform.compute
 [numthreads(8, 8, 1)]
-void VerticalStepIFFT(uint3 id : SV_DispatchThreadID){
+void VerticalStepIFFT(uint3 id : SV_DispatchThreadID) {
 	float4 data = _TwiddleFactorsAndInputIndicesTexture[uint2(_Step, id.y)];
-	uint2 inputsIndices = (uint2)data.ba;
+	float2 twiddleFactors = float2(data.r, -data.g);
+	uint2 inputIndices = (uint2)data.ba;
 	for (uint i = 0; i < _NbCascades; ++i) {
-		if (!_PingPong) _PingPongTextures[uint3(id.xy, i)] = _InputTextures[uint3(id.x, inputsIndices.x, i)] + ComplexMult(float2(data.r, -data.g), _InputTextures[uint3(id.x, inputsIndices.y, i)]);
-		else _InputTextures[uint3(id.xy, i)] = _PingPongTextures[uint3(id.x, inputsIndices.x, i)] + ComplexMult(float2(data.r, -data.g), _PingPongTextures[uint3(id.x, inputsIndices.y, i)]);
+		if (!_PingPong) _PingPongTextures[uint3(id.xy, i)] = _InputTextures[uint3(id.x, inputIndices.x, i)] + ComplexMult(twiddleFactors, _InputTextures[uint3(id.x, inputIndices.y, i)]);
+		else _InputTextures[uint3(id.xy, i)] = _PingPongTextures[uint3(id.x, inputIndices.x, i)] + ComplexMult(twiddleFactors, _PingPongTextures[uint3(id.x, inputIndices.y, i)]);
 	}
 }
 
-// The values of every pixel get multiplied by 1 or -1 depending on their position in the texture
+// Alternates the sign of each value in the texture based on its position.
+// Code source: https://github.com/gasgiant/FFT-Ocean/blob/main/Assets/ComputeShaders/FastFourierTransform.compute
 [numthreads(8, 8, 1)]
-void Permute(uint3 id : SV_DispatchThreadID){
+void Permute(uint3 id : SV_DispatchThreadID) {
 	for (uint i = 0; i < _NbCascades; ++i) {
 		_InputTextures[uint3(id.xy, i)] = _InputTextures[uint3(id.xy, i)] * (1.0 - 2.0 * ((id.x + id.y) % 2));
 	}

@@ -63,7 +63,7 @@ public class WaterBody : MonoBehaviour
 
 
     // Generates a random number from a Normal Distribution N(0, 1)
-    // Extracted from: https://www.alanzucconi.com/2015/09/16/how-to-sample-from-a-gaussian-distribution/
+    // Code source: https://www.alanzucconi.com/2015/09/16/how-to-sample-from-a-gaussian-distribution/
     private float GenerateRandomNumber() {
             float v1, v2, s;
             do {
@@ -95,11 +95,11 @@ public class WaterBody : MonoBehaviour
         randomNoiseTexture = noiseTexture;
     }
 
-    // Creates a RenderTexture object configured as a 2D texture array that containts a specified number of textures with the specified format
+    // Creates a RenderTexture variable configured as a 2D texture array that containts a specified number of textures with the specified format
     // https://docs.unity3d.com/6000.0/Documentation/ScriptReference/RenderTexture.html
     private RenderTexture CreateRenderTextureArray(int arrayDepth, RenderTextureFormat format, bool useMips) {
         RenderTexture rt = new RenderTexture(texturesSize, texturesSize, 0, format, RenderTextureReadWrite.Linear);
-        // This is key for the RenderTexture object to behave like an array of textures instead of a single render texture
+        // This is key for the RenderTexture variable to behave like an array of textures instead of a single render texture
         // https://docs.unity3d.com/6000.0/Documentation/ScriptReference/Rendering.TextureDimension.html
         rt.dimension = TextureDimension.Tex2DArray;
         rt.volumeDepth = arrayDepth;
