@@ -10,6 +10,7 @@ Real-time rendering of realistic ocean-like water surfaces using the Inverse Fas
 - [Mesh generation](#mesh-generation)
 - [Ocean spectrum](#ocean-spectrum)
 - [IFFT](#ifft)
+- [Cascades](#cascades)
 - [Shader](#shader)
 - [Buoyancy](#buoyancy)
 - [How to use it](#how-to-use-it)
@@ -109,19 +110,38 @@ The result of the Fourier amplitudes calculation, implemented in the ```WaterBod
   <img src="https://github.com/user-attachments/assets/615e731b-0309-4c79-a711-793efbc788a7" alt="RedChannel"/>
   <img src="https://github.com/user-attachments/assets/2c00fb19-38ac-468e-8fa5-2e428cc3307c" alt="GreenChannel"/>
 </p>
-<p align="center">Red and green channels of the resulting texture (brightness multiplied by 5 for clearer visibility).</p>
+<p align="center">Red and green channels of a resulting texture example (brightness multiplied by 5 for clearer visibility).</p>
 
 <p align="center">
   <img src="https://github.com/user-attachments/assets/3a3212a3-69c0-4a63-8793-0f1a24193d0c" alt="BlueChannel"/>
   <img src="https://github.com/user-attachments/assets/ce3a30c1-234c-4a51-afb5-80bbd3703497" alt="AlphaChannel"/>
 </p>
-<p align="center">Blue and alpha channels of the resulting texture (brightness multiplied by 5 for clearer visibility).</p>
+<p align="center">Blue and alpha channels of a resulting texture example (brightness multiplied by 5 for clearer visibility).</p>
 
 
 This texture encodes the energy distribution of various wave components. Each value corresponds to a specific combination of frequency and direction, defining the amplitude of a wave in the frequency domain. These amplitudes are then transformed via an IFFT to compute the time-domain surface height and motion of the waves.
 
-
 ## IFFT
+
+The Inverse Fast Fourier Transform is a mathematical algorithm used to convert the frequency-domain data into its corresponding time-domain representation. The implementation in the ```IFFT.cs``` script and the ```IFFT.compute``` compute shader follows the [Cooley-Tukey](https://en.wikipedia.org/wiki/Cooley%E2%80%93Tukey_FFT_algorithm) algorithm walkthrough by [Fynn-Jorin Flügge](https://doi.org/10.15480/882.1436).
+
+## Cascades
+
+To maintain real-time performance, the size of the generated texture must remain within certain limits. However, this often results in noticeable tiling artifacts, especially when observing the water from elevated perspectives.
+
+> [!NOTE]  
+> An image showing the tiling will be added here.
+
+An approach to mitigate this issue is to use multiple cascades instead of relying on a single texture. The wave generation process will be performed for each cascade based on their wavelength, blending them together to create a more natural water surface.
+
+In Unity, this functionality is implemented using a [RenderTexture](https://docs.unity3d.com/6000.0/Documentation/ScriptReference/RenderTexture.html) configured as a texture array. Texture arrays allow multiple layers to be stored and accessed efficiently within a single object, making them well-suited for passing to compute shaders. Each layer in the array represents a cascade, enabling the compute shader to process multiple cascades simultaneously while minimizing the overhead of managing individual textures.
+
+> [!IMPORTANT]  
+> This approach introduces additional computational overhead because each cascade requires its own set of calculations and resources. I recommend a maximum of 4 cascades.
+
+> [!IMPORTANT]  
+> Cascades cannot be dynamically added or removed during execution. Any changes to the number of cascades or their properties must be done before entering Play Mode.
+
 ## Shader
 ## Buoyancy
 ## How to use it
