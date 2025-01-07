@@ -123,24 +123,27 @@ This texture encodes the energy distribution of various wave components. Each va
 
 ## IFFT
 
-The Inverse Fast Fourier Transform is a mathematical algorithm used to convert the frequency-domain data into its corresponding time-domain representation. The implementation in the ```IFFT.cs``` script and the ```IFFT.compute``` compute shader follows the [Cooley-Tukey](https://en.wikipedia.org/wiki/Cooley%E2%80%93Tukey_FFT_algorithm) algorithm walkthrough by [Fynn-Jorin Flügge](https://doi.org/10.15480/882.1436).
+The Inverse Fast Fourier Transform is a mathematical algorithm used to convert the frequency-domain data into its corresponding time-domain representation. The implementation in the ```IFFT.cs``` script and the ```IFFT.compute``` compute shader follows the [Cooley-Tukey](https://en.wikipedia.org/wiki/Cooley%E2%80%93Tukey_FFT_algorithm) IFFT algorithm walkthrough by [Fynn-Jorin Flügge](https://doi.org/10.15480/882.1436).
 
 ## Cascades
 
 To maintain real-time performance, the size of the generated texture must remain within certain limits. However, this often results in noticeable tiling artifacts, especially when observing the water from elevated perspectives.
 
-> [!NOTE]  
-> An image showing the tiling will be added here.
+![TilingExample](https://github.com/user-attachments/assets/28f59d13-7dff-488f-88ca-27313344f023)
+<p align="center">Ocean with only one cascade. Visible tiling.</p>
 
 An approach to mitigate this issue is to use multiple cascades instead of relying on a single texture. The wave generation process will be performed for each cascade based on their wavelength, blending them together to create a more natural water surface.
 
-In Unity, this functionality is implemented using a [RenderTexture](https://docs.unity3d.com/6000.0/Documentation/ScriptReference/RenderTexture.html) configured as a texture array. Texture arrays allow multiple layers to be stored and accessed efficiently within a single object, making them well-suited for passing to compute shaders. Each layer in the array represents a cascade, enabling the compute shader to process multiple cascades simultaneously while minimizing the overhead of managing individual textures.
+In Unity, this functionality is implemented using [RenderTexture](https://docs.unity3d.com/6000.0/Documentation/ScriptReference/RenderTexture.html) variables configured as [texture arrays](https://docs.unity3d.com/6000.0/Documentation/ScriptReference/Rendering.TextureDimension.Tex2DArray.html). Texture arrays allow multiple layers (each representing a cascade) to be stored and accessed efficiently within a single object, enabling the compute shaders to process multiple cascades simultaneously.
 
-> [!IMPORTANT]  
+> [!TIP]  
 > This approach introduces additional computational overhead because each cascade requires its own set of calculations and resources. I recommend a maximum of 4 cascades.
 
 > [!IMPORTANT]  
-> Cascades cannot be dynamically added or removed during execution. Any changes to the number of cascades or their properties must be done before entering Play Mode.
+> In the current implementation, cascades cannot be dynamically added or removed during execution. Any changes to the number of cascades or their properties must be done before entering Play Mode.
+
+![CascadesExample](https://github.com/user-attachments/assets/ba79956d-2529-44d0-9eab-1ca6c2079e18)
+<p align="center">Ocean with three cascades. No visible tiling.</p>
 
 ## Shader
 ## Buoyancy
