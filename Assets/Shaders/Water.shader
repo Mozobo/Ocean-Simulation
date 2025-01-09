@@ -163,7 +163,7 @@ Shader "Custom/Water" {
             SAMPLER(sampler_DerivativesTextures);
             TEXTURE2D_ARRAY(_TurbulenceTextures);
             SAMPLER(sampler_TurbulenceTextures);
-            uniform float _WaveLengths [5];
+            uniform float _Wavelengths [5];
             
             // For correct refractions, in the URP pipeline asset you have to enable both 'Depth Texture' and 'Opaque Texture'
             // Also set the Depth Priming Mode to Forced or the main camera will not render the scene correctly
@@ -347,7 +347,7 @@ Shader "Custom/Water" {
                 float3 displacement = 0;
                 [unroll]
                 for (int i = 0; i < _NbCascades; i++) {
-                    displacement += SAMPLE_TEXTURE2D_ARRAY_LOD(_DisplacementsTextures, sampler_DisplacementsTextures, output.worldUV / _WaveLengths[i], i, output.lodLevel);
+                    displacement += SAMPLE_TEXTURE2D_ARRAY_LOD(_DisplacementsTextures, sampler_DisplacementsTextures, output.worldUV / _Wavelengths[i], i, output.lodLevel);
                 }
                 output.positionWS += displacement;
 
@@ -363,7 +363,7 @@ Shader "Custom/Water" {
                 float turbulence = 0;
                 [unroll]
                 for (int i = 0; i < _NbCascades; i++) {
-                    float2 uv = input.worldUV / _WaveLengths[i];
+                    float2 uv = input.worldUV / _Wavelengths[i];
                     derivatives += SAMPLE_TEXTURE2D_ARRAY_LOD(_DerivativesTextures, sampler_DerivativesTextures, uv, i, input.lodLevel);
                     turbulence += 1 - saturate(SAMPLE_TEXTURE2D_ARRAY_LOD(_TurbulenceTextures, sampler_TurbulenceTextures, uv, i, input.lodLevel).x);
                 }

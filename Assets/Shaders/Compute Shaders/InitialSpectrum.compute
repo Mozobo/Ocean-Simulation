@@ -13,7 +13,7 @@ uint _TextureSize;
 Texture2D<float2> _RandomNoiseTexture;
 RWTexture2DArray<float4> _InitialSpectrumTextures;
 RWTexture2DArray<float4> _WavesDataTextures;
-StructuredBuffer<float> _WaveLengths;
+StructuredBuffer<float> _Wavelengths;
 StructuredBuffer<float> _Cutoffs;
 
 float _WindSpeed;
@@ -103,8 +103,9 @@ void CalculateInitialSpectrumTextures(uint3 id : SV_DispatchThreadID) {
     float gaussianRandomNumber2 = _RandomNoiseTexture[id.xy].y;
 
     for (uint i = 0; i < _NbCascades; ++i) {
-        // K is the wavenumber
-        float k = 2.0f * PI/_WaveLengths[i];
+        // K is the angular wavenumber
+        // https://en.wikipedia.org/wiki/Wavenumber
+        float k = 2.0f * PI/_Wavelengths[i];
         float2 kVector = float2(nx, nz) * k;
         float kMagnitude = length(kVector);
 

@@ -46,8 +46,8 @@ public class WaterBody : MonoBehaviour
     private RenderTexture turbulenceTextures;
 
     public WaterCascade[] cascades;
-    private float[] waveLengths;
-    ComputeBuffer waveLengthsBuffer;
+    private float[] wavelengths;
+    ComputeBuffer wavelengthsBuffer;
     private float[] cutoffs;
     ComputeBuffer cutoffsBuffer;
 
@@ -129,7 +129,7 @@ public class WaterBody : MonoBehaviour
         initialSpectrumComputeShader.SetTexture(KERNEL_INITIAL_SPECTRUM, "_RandomNoiseTexture", randomNoiseTexture);
         initialSpectrumComputeShader.SetTexture(KERNEL_INITIAL_SPECTRUM, "_InitialSpectrumTextures", initialSpectrumTextures);
         initialSpectrumComputeShader.SetTexture(KERNEL_INITIAL_SPECTRUM, "_WavesDataTextures", wavesDataTextures);
-        initialSpectrumComputeShader.SetBuffer(KERNEL_INITIAL_SPECTRUM, "_WaveLengths", waveLengthsBuffer);
+        initialSpectrumComputeShader.SetBuffer(KERNEL_INITIAL_SPECTRUM, "_Wavelengths", wavelengthsBuffer);
         initialSpectrumComputeShader.SetBuffer(KERNEL_INITIAL_SPECTRUM, "_Cutoffs", cutoffsBuffer);
         initialSpectrumComputeShader.SetFloat("_WindSpeed", windSpeed);
         initialSpectrumComputeShader.SetFloat("_WindDirectionX", windDirection.x);
@@ -222,17 +222,17 @@ public class WaterBody : MonoBehaviour
         derivativesTextures = CreateRGBARenderTextureArray(cascades.Length, true);
         turbulenceTextures = CreateRGBARenderTextureArray(cascades.Length, true);
 
-        waveLengths = new float[cascades.Length];
+        wavelengths = new float[cascades.Length];
         cutoffs = new float[cascades.Length * 2];
 
         for(int i = 0; i < cascades.Length; i++) {
-            waveLengths[i] = cascades[i].waveLength;
+            wavelengths[i] = cascades[i].wavelength;
             cutoffs[i*2] = cascades[i].cutoffLow;
             cutoffs[i*2 + 1] = cascades[i].cutoffHigh;
         }
 
-        waveLengthsBuffer = new ComputeBuffer(cascades.Length, 4, ComputeBufferType.Default);
-        waveLengthsBuffer.SetData(waveLengths);
+        wavelengthsBuffer = new ComputeBuffer(cascades.Length, 4, ComputeBufferType.Default);
+        wavelengthsBuffer.SetData(wavelengths);
         cutoffsBuffer = new ComputeBuffer(cascades.Length * 2, 4, ComputeBufferType.Default);
         cutoffsBuffer.SetData(cutoffs);
 
@@ -265,7 +265,7 @@ public class WaterBody : MonoBehaviour
         material.SetTexture("_DisplacementsTextures", displacementsTextures);
         material.SetTexture("_DerivativesTextures", derivativesTextures);
         material.SetTexture("_TurbulenceTextures", turbulenceTextures);
-        material.SetFloatArray("_WaveLengths", waveLengths);
+        material.SetFloatArray("_Wavelengths", wavelengths);
     }
 
     void Update() {
@@ -284,8 +284,8 @@ public class WaterBody : MonoBehaviour
 
     // Prevent leaks from the Buffers
     void OnDisable() {
-		waveLengthsBuffer.Release();
-        waveLengths = null;
+		wavelengthsBuffer.Release();
+        wavelengths = null;
         cutoffsBuffer.Release();
         cutoffsBuffer = null;
 	}

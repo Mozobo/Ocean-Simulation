@@ -417,7 +417,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 97885513}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dec0f6b189ef99c49842e2ab6856de72, type: 3}
+  m_Script: {fileID: 11500000, guid: 7e7ce81cbaa2fdf42b974151eba7310f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   moveSpeed: 100
@@ -467,9 +467,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2c86d0fa464e9744cb10cde578f65882, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  wavelength: 1000
   cutoffHigh: 10000000
   cutoffLow: 0.0001
-  waveLength: 1000
 --- !u!1 &260698683
 GameObject:
   m_ObjectHideFlags: 0
@@ -1178,9 +1178,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2c86d0fa464e9744cb10cde578f65882, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  wavelength: 201
   cutoffHigh: 1000000
   cutoffLow: 0.001
-  waveLength: 201
 --- !u!1 &1331746634
 GameObject:
   m_ObjectHideFlags: 0
@@ -1361,9 +1361,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2c86d0fa464e9744cb10cde578f65882, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  wavelength: 1530
   cutoffHigh: 1e+12
   cutoffLow: 0.000000001
-  waveLength: 1530
 --- !u!1 &1634312897
 GameObject:
   m_ObjectHideFlags: 0
@@ -1500,9 +1500,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2c86d0fa464e9744cb10cde578f65882, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  wavelength: 34
   cutoffHigh: 100
   cutoffLow: 0.1
-  waveLength: 34
 --- !u!4 &1651070123
 Transform:
   m_ObjectHideFlags: 0
