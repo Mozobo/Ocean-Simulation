@@ -18,7 +18,11 @@ public class WaterBody : MonoBehaviour
 
     // Buoyancy parameters
     public float density = 1f;
+    // https://en.wikipedia.org/wiki/Drag_(physics)
+    // https://docs.unity3d.com/2020.1/Documentation/ScriptReference/Rigidbody-drag.html
     public float drag = 10f;
+    // https://en.wikipedia.org/wiki/Drag_(physics)
+    // https://docs.unity3d.com/2020.1/Documentation/ScriptReference/Rigidbody-angularDrag.html
     public float angularDrag = 1f;
     // ---------------
     
@@ -189,6 +193,7 @@ public class WaterBody : MonoBehaviour
     }
 
     public float GetWaterHeight(Vector3 worldPosition) {
+        // As GPU readback implies a delay, the data may not be available yet when this function is called, specially on the first frames of the simulation.
         if (buoyancyData == null) return 0f;
 
         float u = Mathf.InverseLerp(-texturesSize / 2, texturesSize / 2, worldPosition.x);
@@ -199,6 +204,7 @@ public class WaterBody : MonoBehaviour
         int y = Mathf.Clamp((int)(v * displacementsTextures.height), 0, displacementsTextures.height - 1);
 
         int index = y * displacementsTextures.width + x;
+        // Return the green channel, which represents the water height.
         return buoyancyData[index].g;
     }
 
@@ -271,13 +277,14 @@ public class WaterBody : MonoBehaviour
     void Update() {
         CalculateWavesTexturesAtTime(Time.time);
 
+        // Request an asynchronous readback of the displacement textures's first cascade from the GPU (CPU cannot sample RenderTexture directly).
         AsyncGPUReadback.Request(displacementsTextures, 0, request => {
             if (request.hasError) {
                 Debug.LogError("Async GPU Readback failed!");
                 return;
             }
 
-            // Convert the request data to a Color array (assuming RGBAFloat format)
+            // Convert the request data to a Color array (assuming RGBAFloat format).
             buoyancyData = request.GetData<Color>().ToArray();
         });
     }
