@@ -147,6 +147,33 @@ In Unity, this functionality is implemented using [RenderTexture](https://docs.u
 
 ## Shader
 ## Buoyancy
+
+Very simple buoyancy system. The idea is to sample the ocean's height at specific positions so objects can "float" depending on how much volume is submerged.
+
+This is done by sampling the displacement textures, but since the data in RenderTextures is a GPU resource and we need to access it on the CPU, it must be transfered. Unity provides a mechanism for this through [AsyncGPUReadback](https://docs.unity3d.com/6000.0/Documentation/ScriptReference/Rendering.AsyncGPUReadback.html). However, as the documentation states, this method introduces a latency of a few frames, delaying the buoyancy behavior in relation to the movement of the waves.
+
+Every frame, [```Waterbody.cs```](https://github.com/Mozobo/Ocean-Simulation/blob/main/Assets/Scripts/WaterBody.cs) requests displacement data from the GPU. Only the first cascade of the displacements is sampled because sampling more cascades would introduce excessive latency. The data in each pixel is then stored in an array:
+
+```
+void Update() {
+    ...
+    AsyncGPUReadback.Request(displacementsTextures, 0, request => {
+        if (request.hasError) {
+            Debug.LogError("Async GPU Readback failed!");
+            return;
+        }
+        buoyancyData = request.GetData<Color>().ToArray();
+    });
+}
+```
+
+Which allows to have a public function ```GetWaterHeight``` that maps any given position to an index in the array and returns the corresponding water height.
+
+Each object with the [```BuoyantObject.cs```](https://github.com/Mozobo/Ocean-Simulation/blob/main/Assets/Scripts/BuoyantObject.cs) script attached checks the water height at its position, calculates the submerged volume, and applies forces to its rigidbody. This simulates both buoyancy and water drag effects. As this is a very simple buoyancy system, the volume calculation is a simplified approximation based on the object's dimensions (x, y, and z) and the difference between the y-coordinate and the water height. It obviously does not accurately represent objects with non-rectangular shapes, but it provides a fast approach.
+
+> [!NOTE]  
+> A video showing boyancy will be added here.
+
 ## How to use it
 ## Coming next
 ## References
