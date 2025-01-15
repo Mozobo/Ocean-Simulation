@@ -1,29 +1,3 @@
-// References:
-// https://unitywatershader.wordpress.com/
-// https://catlikecoding.com/unity/tutorials/flow/looking-through-water/
-// https://catlikecoding.com/unity/tutorials/rendering/part-8/
-// https://github.com/usunyu/my-awesome-projects/blob/main/Shader/Unity%20HLSL%20Shader/Assets/Hawaii%20Environment/Water/Tasharen%20Water.shader
-// https://github.com/leonjovanovic/water-shader-unity/blob/main/Assets/Shaders/WavesDistortion.shader
-// https://en.wikibooks.org/wiki/Cg_Programming/Unity/Specular_Highlights
-// https://www.alanzucconi.com/2017/08/30/fast-subsurface-scattering-1/
-// https://abyssal.eu/a-look-through-the-waters-surface/
-// https://docs.unity3d.com/Manual/SL-SurfaceShaders.html
-// https://docs.unity3d.com/Manual/SL-BuiltinFunctions.html
-// https://rtarun9.github.io/blogs/physically_based_rendering/#what-is-physically-based-rendering
-// https://en.wikipedia.org/wiki/Schlick's_approximation
-
-// Tesselation
-// https://docs.unity3d.com/Manual/SL-SurfaceShaderTessellation.html
-// https://nedmakesgames.medium.com/mastering-tessellation-shaders-and-their-many-uses-in-unity-9caeb760150e
-// https://www.youtube.com/watch?v=63ufydgBcIk
-// https://catlikecoding.com/unity/tutorials/advanced-rendering/tessellation/
-
-// Shadows
-// https://docs.unity3d.com/Packages/com.unity.render-pipelines.universal@16.0/manual/use-built-in-shader-methods-shadows.html
-// https://www.youtube.com/watch?v=1bm0McKAh9E
-
-// Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
-
 Shader "Custom/Water" {
     
     Properties {
@@ -95,20 +69,13 @@ Shader "Custom/Water" {
             #define AIR_REFRACTION_INDEX 1.0f
             #define R0 pow((AIR_REFRACTION_INDEX - WATER_REFRACTION_INDEX) / (AIR_REFRACTION_INDEX + WATER_REFRACTION_INDEX), 2)
 
-            // Variables with value provided by the engine
-            TEXTURE2D(_CameraOpaqueTexture);
-            SAMPLER(sampler_CameraOpaqueTexture);
-            TEXTURE2D(_CameraDepthTexture);
-            SAMPLER(sampler_CameraDepthTexture);
-            float4 _CameraOpaqueTexture_TexelSize;
-
             struct VertexData {
-                float3 positionOS : POSITION; // Object system
+                float3 positionOS : POSITION; // Object Space
             };
 
             struct TessellationControlPoint {
-                float3 positionWS : INTERNALTESSPOS; // World System
-                float4 positionCS : SV_POSITION;
+                float3 positionWS : INTERNALTESSPOS; // World Space
+                float4 positionCS : SV_POSITION; // Clip Space
             };
 
             struct TessellationFactors {
@@ -116,16 +83,23 @@ Shader "Custom/Water" {
                 float inside : SV_InsideTessFactor;
             };
 
-            struct Vertex2FragmentData {
-                float4 positionCS : SV_POSITION;
+            struct Domain2FragmentData {
+                float4 positionCS : SV_POSITION; // Clip Space
                 float3 viewDir : TEXCOORD0;
-                float3 positionWS : TEXCOORD1;
+                float3 positionWS : TEXCOORD1; // World Space
                 float2 worldUV : TEXCOORD2;
-                float4 positionSS: TEXCOORD3; // texture coordinate for sampling a GrabPass texure
+                float4 positionSS: TEXCOORD3; // Screen Space
                 half lodLevel: TEXCOORD4;
             };
 
-            // Variables with value provided by us (Through code or through Unity's interface)
+            // Variables with value provided by the engine.
+            TEXTURE2D(_CameraOpaqueTexture);
+            SAMPLER(sampler_CameraOpaqueTexture);
+            TEXTURE2D(_CameraDepthTexture);
+            SAMPLER(sampler_CameraDepthTexture);
+            float4 _CameraOpaqueTexture_TexelSize;
+
+            // Variables with value provided by us (Through code or through Unity's interface).
             half3 _Color;
             half _Roughness;
             half _MaxLODLevel;
@@ -261,6 +235,8 @@ Shader "Custom/Water" {
                 return output;
             }
 
+            // Returns the tessellation factor based on the distance between a given world space position and the camera.
+            // It decreases exponentially as the distance increases.
             float DistanceBasedTessFactor (float3 positionWS, float minDist, float maxDist, float tess) {
                 float dist = distance (positionWS.xyz, _WorldSpaceCameraPos);
                 float normalizedDist = saturate((dist - minDist) / (maxDist - minDist));
@@ -269,14 +245,14 @@ Shader "Custom/Water" {
                 return f;
             }
 
-            // https://nedmakesgames.medium.com/mastering-tessellation-shaders-and-their-many-uses-in-unity-9caeb760150e
-            // Returns true if the point is outside the bounds set by lower and higher
+            // Returns true if the point is outside the bounds set by lower and higher.
+            // Code source: https://nedmakesgames.medium.com/mastering-tessellation-shaders-and-their-many-uses-in-unity-9caeb760150e
             bool IsOutOfBounds(float3 p, float3 lower, float3 higher) {
                 return p.x < lower.x || p.x > higher.x || p.y < lower.y || p.y > higher.y || p.z < lower.z || p.z > higher.z;
             }
 
-            // https://nedmakesgames.medium.com/mastering-tessellation-shaders-and-their-many-uses-in-unity-9caeb760150e
-            // Returns true if the given vertex is outside the camera fustum and should be culled
+            // Returns true if the given vertex is outside the camera fustum and should be culled.
+            // Code source: https://nedmakesgames.medium.com/mastering-tessellation-shaders-and-their-many-uses-in-unity-9caeb760150e
             bool IsPointOutOfFrustum(float4 positionCS) {
                 float3 culling = positionCS.xyz;
                 float w = positionCS.w;
@@ -287,8 +263,8 @@ Shader "Custom/Water" {
                 return IsOutOfBounds(culling, lowerBounds, higherBounds);
             }
 
-            // https://nedmakesgames.medium.com/mastering-tessellation-shaders-and-their-many-uses-in-unity-9caeb760150e
-            // Returns true if it should be clipped due to frustum or winding culling
+            // Returns true if it should be clipped due to frustum or winding culling.
+            // Code source: https://nedmakesgames.medium.com/mastering-tessellation-shaders-and-their-many-uses-in-unity-9caeb760150e
             bool ShouldClipPatch(float4 p0PositionCS, float4 p1PositionCS, float4 p2PositionCS) {
                 bool allOutside = IsPointOutOfFrustum(p0PositionCS) &&
                     IsPointOutOfFrustum(p1PositionCS) &&
@@ -296,8 +272,8 @@ Shader "Custom/Water" {
                 return allOutside;
             }
 
-            // The patch constant function runs once per triangle, or "patch"
-            // It runs in parallel to the hull function
+            // The patch constant function runs once per triangle, or "patch".
+            // It runs in parallel to the hull function.
             TessellationFactors PatchConstantFunction(InputPatch<TessellationControlPoint, 3> patch) {
                 // Calculate tessellation factors
                 TessellationFactors f;
@@ -325,19 +301,15 @@ Shader "Custom/Water" {
                 return patch[id];
             }
 
-            // Call this macro to interpolate between a triangle patch, passing the field name
+            // Call this macro to interpolate between a triangle patch, passing the field name.
             #define BARYCENTRIC_INTERPOLATE(fieldName) \
                     patch[0].fieldName * barycentricCoordinates.x + \
                     patch[1].fieldName * barycentricCoordinates.y + \
                     patch[2].fieldName * barycentricCoordinates.z
 
             [domain("tri")] // Signal we're inputting triangles
-            // Params:
-            // The output of the patch constant function
-            // The Input triangle
-            // The barycentric coordinates of the vertex on the triangle
-            Vertex2FragmentData Domain(TessellationFactors factors, OutputPatch<TessellationControlPoint, 3> patch, float3 barycentricCoordinates : SV_DomainLocation) {
-                Vertex2FragmentData output;
+            Domain2FragmentData Domain(TessellationFactors factors, OutputPatch<TessellationControlPoint, 3> patch, float3 barycentricCoordinates : SV_DomainLocation) {
+                Domain2FragmentData output;
                 output.positionWS = BARYCENTRIC_INTERPOLATE(positionWS);
                 output.worldUV = output.positionWS.xz;
 
@@ -358,7 +330,7 @@ Shader "Custom/Water" {
                 return output;
             }
 
-            half4 Fragment(Vertex2FragmentData input) : SV_Target {
+            half4 Fragment(Domain2FragmentData input) : SV_Target {
                 float4 derivatives = 0;
                 float turbulence = 0;
                 [unroll]
@@ -369,11 +341,11 @@ Shader "Custom/Water" {
                 }
 
                 float2 slope = float2(derivatives.x / (1 + derivatives.z), derivatives.y / (1 + derivatives.w));
-                float3 normalOS = normalize(float3(-slope.x, 1, -slope.y));
-                float3 normalWS = normalize(TransformObjectToWorldNormal(normalOS));
+                float3 normalOS = normalize(float3(-slope.x, 1, -slope.y)); // Object Space
+                float3 normalWS = normalize(TransformObjectToWorldNormal(normalOS)); // World Space
 
-                float3 lightDirection = normalize(_MainLightPosition);
-                float3 halfwayVec = normalize(input.viewDir + lightDirection);
+                float3 lightDir = normalize(_MainLightPosition);
+                float3 halfwayVec = normalize(input.viewDir + lightDir);
 
                 float fresnel = R0 + (1 - R0) * pow(1.0 - saturate(dot(normalWS, input.viewDir)), 5 * exp(-2.69*_Roughness)) / (1 + 22.7 * pow(_Roughness, 1.5));
                 float fresnelH = R0 + (1 - R0) * pow(1.0 - saturate(dot(halfwayVec, input.viewDir)), 5);
@@ -382,13 +354,13 @@ Shader "Custom/Water" {
                 float shadowFactor = MainLightRealtimeShadow(TransformWorldToShadowCoord(input.positionWS));
 
                 half3 refraction = UnderwaterView(input.positionSS, normalWS);
-                refraction += SubsurfaceScatteringApproximation(input.positionWS.y, lightDirection, -input.viewDir);
+                refraction += SubsurfaceScatteringApproximation(input.positionWS.y, lightDir, -input.viewDir);
 
                 half3 reflections = EnvironmentReflections(input.viewDir, normalWS);
                 float nu = _EX * 10.0 * (1.0 - _Roughness); // Controls anisotropy along x-axis
                 float nv = _EY * 10.0 * (1.0 - _Roughness);  // Controls anisotropy along z-axis
-                half3 ashikhminShirleySpec = AshikhminShirleyBRDF(halfwayVec, input.viewDir, lightDirection, normalWS, fresnelH, nu, nv);
-                half3 cookTorranceSpec = CookTorranceBRDF(halfwayVec, normalWS, input.viewDir, lightDirection, fresnelH, _Roughness);
+                half3 ashikhminShirleySpec = AshikhminShirleyBRDF(halfwayVec, input.viewDir, lightDir, normalWS, fresnelH, nu, nv);
+                half3 cookTorranceSpec = CookTorranceBRDF(halfwayVec, normalWS, input.viewDir, lightDir, fresnelH, _Roughness);
                 // Blending factor based on view angle, adding Ashikhmin-Shirley at flatter angles
                 reflections += (cookTorranceSpec + ashikhminShirleySpec * saturate(dot(input.viewDir, normalWS))) * shadowFactor * _SunReflectionStrength;
 
