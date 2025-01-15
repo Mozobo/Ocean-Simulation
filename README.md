@@ -12,6 +12,7 @@ Real-time rendering of realistic ocean-like water surfaces using the Inverse Fas
 - [IFFT](#ifft)
 - [Cascades](#cascades)
 - [Shader](#shader)
+  - [Tessellation](#tessellation)
 - [Buoyancy](#buoyancy)
 - [How to use it](#how-to-use-it)
 - [Coming next](#coming-next)
@@ -19,10 +20,10 @@ Real-time rendering of realistic ocean-like water surfaces using the Inverse Fas
 
 ## Mesh generation
 
-The first step is to generate a mesh that forms the base of the water body. In this project, a low-resolution plane is created. The idea is to increase the number of vertices in the areas close to the camera using a tesselation shader. The code in ```MeshGenerator.cs``` is based on [Catlike Coding's Procedural Grid tutorial](https://catlikecoding.com/unity/tutorials/procedural-grid/), but adjusted to have the plane centered at the GameObject's position and to allow the modification of the triangles's size.
+The first step is to generate a mesh that forms the base of the water body. In this project, a low-resolution plane is created. The idea is to increase the number of vertices in the areas close to the camera using a tessellation shader. The code in ```MeshGenerator.cs``` is based on [Catlike Coding's Procedural Grid tutorial](https://catlikecoding.com/unity/tutorials/procedural-grid/), but adjusted to have the plane centered at the GameObject's position and to allow the modification of the triangles's size.
 
 > [!TIP]
-> For big planes I recommend keeping the triangles's size between 25 and 100 . Below 25 will be too resource consuming due to the shader running for each tesselated triangle and above 100 will probably not have enough resolution even with the tesselation.
+> For big planes I recommend keeping the triangles's size between 25 and 100 . Below 25 will be too resource consuming due to the shader running for each tesselated triangle and above 100 will probably not have enough resolution even with the tessellation.
 
 > [!IMPORTANT]  
 > The plane is created at the start of the execution and modifying plane size and triangle size at run-time will not change it. Only changes in position, rotation and scale will be reflected.
@@ -146,6 +147,15 @@ In Unity, this functionality is implemented using [RenderTexture](https://docs.u
 <p align="center">Ocean with three cascades. No visible tiling.</p>
 
 ## Shader
+
+### Tessellation
+
+The mesh detail is enhanced by applying [tessellation](https://www.khronos.org/opengl/wiki/tessellation) through the shader. [```Water.shader```](https://github.com/Mozobo/Ocean-Simulation/blob/main/Assets/Shaders/Water.shader) follows [NedMakesGames's amazing explanation](https://nedmakesgames.medium.com/mastering-tessellation-shaders-and-their-many-uses-in-unity-9caeb760150e) on writing  tessellation shaders for Unity.
+
+Tessellation factors are calculated based on the distance between the triangles and the camera. Within a customizable maximum radius, the tessellation level decreases from an adjustable maximum to none as the distance from the camera increases. For large water bodies to appear realistic, both the tessellation range and maximum tessellation level need to have large values. A linear decrease, like the ones provided by Unity's [Tessellation.cginc](https://github.com/TwoTailsGames/Unity-Built-in-Shaders/blob/master/CGIncludes/Tessellation.cginc) and [Tessellation.hlsl](https://github.com/Unity-Technologies/Graphics/blob/master/Packages/com.unity.render-pipelines.core/ShaderLibrary/Tessellation.hlsl) APIs, would add too many vertices to regions where the detail wouldn't be noticeable, wasting computing resources. This is why I've implemented an adjustable exponential decay factor that provides enough detail to be convincing while maintaining good performance.
+
+https://github.com/user-attachments/assets/1c8b2512-b94c-465c-b2cf-795aa9eb958d
+
 ## Buoyancy
 
 Very simple buoyancy system. The idea is to sample the ocean's height at specific positions so objects can "float" depending on how much volume is submerged.
