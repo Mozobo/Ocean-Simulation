@@ -13,6 +13,7 @@ Real-time rendering of realistic ocean-like water surfaces using the Inverse Fas
 - [Cascades](#cascades)
 - [Shader](#shader)
   - [Tessellation](#tessellation)
+  - [Vertex displacement, normals and LODs](#vertex-displacement-normals-and-lods)
 - [Buoyancy](#buoyancy)
 - [How to use it](#how-to-use-it)
 - [Coming next](#coming-next)
@@ -120,7 +121,7 @@ The result of the Fourier amplitudes calculation, implemented in the ```WaterBod
 <p align="center">Blue and alpha channels of a resulting texture example (brightness multiplied by 5 for clearer visibility).</p>
 
 
-This texture encodes the energy distribution of various wave components. Each value corresponds to a specific combination of frequency and direction, defining the amplitude of a wave in the frequency domain. These amplitudes are then transformed via an IFFT to compute the time-domain surface height and motion of the waves.
+This texture encodes the energy distribution of various wave components. Each value corresponds to a specific combination of frequency and direction, defining the amplitude of a wave in the frequency domain.
 
 ## IFFT
 
@@ -155,6 +156,14 @@ The mesh detail is enhanced by applying [tessellation](https://www.khronos.org/o
 Tessellation factors are calculated based on the distance between the triangles and the camera. Within a customizable maximum radius, the tessellation level decreases from an adjustable maximum to none as the distance from the camera increases. For large water bodies to appear realistic, both the tessellation range and maximum tessellation level need to have large values. A linear decrease, like the ones provided by Unity's [Tessellation.cginc](https://github.com/TwoTailsGames/Unity-Built-in-Shaders/blob/master/CGIncludes/Tessellation.cginc) and [Tessellation.hlsl](https://github.com/Unity-Technologies/Graphics/blob/master/Packages/com.unity.render-pipelines.core/ShaderLibrary/Tessellation.hlsl) APIs, would add too many vertices to regions where the detail wouldn't be noticeable, wasting computing resources. This is why I've implemented an adjustable exponential decay factor that provides enough detail to be convincing while maintaining good performance.
 
 https://github.com/user-attachments/assets/1c8b2512-b94c-465c-b2cf-795aa9eb958d
+
+### Vertex displacement, normals and LODs
+
+The visual movement of the water is achieved by applying the result of the IFFT stage to the vertices of the mesh. After tessellation, the Domain shader function is used to modify the position of each vertex. The total displacement of a vertex is calculated by iterating through all cascades and summing the contributions. A similar process is followed for the normals.
+
+An optimization technique used is [Level Of Detail](https://en.wikipedia.org/wiki/Level_of_detail_(computer_graphics)) (LOD), which determines the [mipmap](https://en.wikipedia.org/wiki/Mipmapping) level of the texture to sample based on the distance from the camera, reducing the workload for distant objects.
+
+https://github.com/user-attachments/assets/518b0be2-b5aa-46c7-b29c-0bf99a76755b
 
 ## Buoyancy
 
