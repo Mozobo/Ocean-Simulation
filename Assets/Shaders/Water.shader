@@ -93,11 +93,12 @@ Shader "Custom/Water" {
             };
 
             // Variables with value provided by the engine.
+            // Make sure both Opaque and Depth textures are enabled in the settings of the pipeline asset you are using.
             TEXTURE2D(_CameraOpaqueTexture);
             SAMPLER(sampler_CameraOpaqueTexture);
             TEXTURE2D(_CameraDepthTexture);
             SAMPLER(sampler_CameraDepthTexture);
-            float4 _CameraOpaqueTexture_TexelSize;
+            float4 _CameraDepthTexture_TexelSize;
 
             // Variables with value provided by us (Through code or through Unity's interface).
             half3 _Color;
@@ -139,15 +140,15 @@ Shader "Custom/Water" {
             SAMPLER(sampler_TurbulenceTextures);
             uniform float _Wavelengths [5];
             
-            // For correct refractions, in the URP pipeline asset you have to enable both 'Depth Texture' and 'Opaque Texture'
-            // Also set the Depth Priming Mode to Forced or the main camera will not render the scene correctly
+            // Returns the color of what is rendered behind, distorts it to simulate refraction and blends with an adjustable color to cheaply apporoximate underwater light absorption.
+            // Based on https://catlikecoding.com/unity/tutorials/flow/looking-through-water/
             half3 UnderwaterView(float4 positionSS, float3 normalWS) {
                 float2 uvOffset = normalWS.xy * _RefractionStrength;
-                uvOffset.y *= _CameraOpaqueTexture_TexelSize.z * abs(_CameraOpaqueTexture_TexelSize.y);
+                uvOffset.y *= _CameraDepthTexture_TexelSize.z * abs(_CameraDepthTexture_TexelSize.y);
                 float2 uv = (positionSS.xy + uvOffset) / positionSS.w;
 
                 #if UNITY_UV_STARTS_AT_TOP
-                    if (_CameraOpaqueTexture_TexelSize.y < 0) {
+                    if (_CameraDepthTexture_TexelSize.y < 0) {
                         uv.y = 1 - uv.y;
                     }
                 #endif
@@ -159,7 +160,7 @@ Shader "Custom/Water" {
                 if (depthDifference < 0) {
                     uv = positionSS.xy / positionSS.w;
                     #if UNITY_UV_STARTS_AT_TOP
-                        if (_CameraOpaqueTexture_TexelSize.y < 0) {
+                        if (_CameraDepthTexture_TexelSize.y < 0) {
                             uv.y = 1 - uv.y;
                         }
                     #endif
