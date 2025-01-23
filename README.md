@@ -14,6 +14,7 @@ Real-time rendering of realistic ocean-like water surfaces using the Inverse Fas
 - [Shader](#shader)
   - [Tessellation](#tessellation)
   - [Vertex displacement, normals and LODs](#vertex-displacement-normals-and-lods)
+  - [Refraction and underwater fog](#refraction-and-underwater-fog)
 - [Buoyancy](#buoyancy)
 - [How to use it](#how-to-use-it)
 - [Coming next](#coming-next)
@@ -164,6 +165,28 @@ The visual movement of the water is achieved by applying the result of the IFFT 
 An optimization technique used is [Level Of Detail](https://en.wikipedia.org/wiki/Level_of_detail_(computer_graphics)) (LOD), which determines the [mipmap](https://en.wikipedia.org/wiki/Mipmapping) level of the texture to sample based on the distance from the camera, reducing the workload for distant objects.
 
 https://github.com/user-attachments/assets/518b0be2-b5aa-46c7-b29c-0bf99a76755b
+
+### Refraction and underwater fog
+
+The method used to simulate both effects comes from [Catlike Coding's Looking Through Water tutorial](https://catlikecoding.com/unity/tutorials/flow/looking-through-water/). In this method, the scene rendered behind the water is distorted and blended with an adjustable color based on its distance from the water surface. However, Catlike Coding's tutorial is designed for Unity's Built-in Render Pipeline and relies on the [GrabPass](https://docs.unity3d.com/es/530/Manual/SL-GrabPass.html) feature, which is not well-supported in URP or HDRP. To adapt it for a URP shader using HLSLPROGRAM syntax, the GrabPass is replaced with the [Opaque Texture](https://docs.unity3d.com/Packages/com.unity.render-pipelines.universal@7.1/manual/universalrp-asset.html#general), declared in the shader as:
+```
+TEXTURE2D(_CameraOpaqueTexture);
+SAMPLER(sampler_CameraOpaqueTexture);
+```
+And the Depth Texture declared as:
+```
+TEXTURE2D(_CameraDepthTexture);
+SAMPLER(sampler_CameraDepthTexture);
+float4 _CameraDepthTexture_TexelSize;
+```
+For these values to be automatically filled by the engine in URP, the Depth and Opaque Textures must be enabled in both the pipeline asset settings and the camera settings.
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/b2fb8b18-3b97-42a0-bbcd-747ee5ba6758" alt="PipelineAssetEnabledOptions"/>
+  <img src="https://github.com/user-attachments/assets/36cf9d9c-2448-4540-829b-7a689c755dbf" alt="CameraSettings"/>
+</p>
+
+https://github.com/user-attachments/assets/77a77be7-25ff-4183-b148-ec2de364f504
 
 ## Buoyancy
 
