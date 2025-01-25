@@ -172,6 +172,12 @@ Shader "Custom/Water" {
                 float fogFactor = exp2(-_WaterFogDensity * depthDifference);
                 return lerp(_Color, backgroundColor, fogFactor);
             }
+            
+            // Returns a fast subsurface scattering approximation based on the height of the wave, the light direction and the view direction.
+            half3 SubsurfaceScatteringApproximation(float waveHeight, float3 lightDir, float3 viewDir) {
+                float coeff = _SubsurfaceScatteringIntensity * max(0, waveHeight) * pow(max(0, dot(lightDir, viewDir)), 4);
+                return coeff * _SubsurfaceScatteringColor * _MainLightColor;
+            }
 
             float NormalDistribution(float3 h, float3 normalWS, float3 viewDir, float roughness) {
                 float alpha = roughness * roughness;
@@ -222,11 +228,6 @@ Shader "Custom/Water" {
                 return _MainLightColor * normalDistribution * geometryFunction / max(4.0f * saturate(dot(viewDir, normalWS)) * saturate(dot(lightDir, normalWS)), FLT_MIN);
             }
 
-            half3 SubsurfaceScatteringApproximation(float waveHeight, float3 lightDir, float3 viewDir) {
-                float coeff = _SubsurfaceScatteringIntensity * max(0, waveHeight) * pow(max(0, dot(lightDir, viewDir)), 4);
-                return coeff * _SubsurfaceScatteringColor * _MainLightColor;
-                // return coeff * _Color * _MainLightColor;
-            }
 
             TessellationControlPoint Vertex(VertexData input) {
                 TessellationControlPoint output;
