@@ -15,6 +15,7 @@ Real-time rendering of realistic ocean-like water surfaces using the Inverse Fas
   - [Tessellation](#tessellation)
   - [Vertex displacement, normals and LODs](#vertex-displacement-normals-and-lods)
   - [Refraction and underwater fog](#refraction-and-underwater-fog)
+  - [Subsurface scattering](#subsurface-scattering)
 - [Buoyancy](#buoyancy)
 - [How to use it](#how-to-use-it)
 - [Coming next](#coming-next)
@@ -187,6 +188,23 @@ For these values to be automatically filled by the engine in URP, the Depth and 
 </p>
 
 https://github.com/user-attachments/assets/77a77be7-25ff-4183-b148-ec2de364f504
+
+### Subsurface scattering
+
+[Subsurface scattering](https://en.wikipedia.org/wiki/Subsurface_scattering) happens when light penetrates a surface, such as water, and scatters beneath it before exiting. I've developed an approach that, even though not as realistic or physically accurate as ray marching or others, is very fast and visually convincing.
+
+```math
+L_{SS} = C_{SS} · C_{L} · I_{SS} · max(0, H) · (max(0, dot(L, V)))^{4}
+```
+Where:
+- $`I_{SS}`$: Subsurface scattering intensity.
+- $`H`$: Wave height. It is clamped to be at least 0, because negative values would result in negative subsurface scattering irradiance, interfering with other components when computing the final light model.
+- $`L`$: Light direction.
+- $`V`$: View direction. The dot product with the light direction is also clamped for the same reason as the wave height. In this formula, an even exponent ensures the value remains non-negative which technically allows us to omit the clamping, but I leave it as a safeguard for anyone that uses this approach and changes the exponent value because it suits them better.
+- $`C_{SS}`$: Subsurface scattering color.
+- $`C_{L}`$: Light color.
+
+https://github.com/user-attachments/assets/c5478d7d-75a4-4d4d-93fc-f29d1c3aad05
 
 ## Buoyancy
 
