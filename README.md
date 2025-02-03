@@ -16,6 +16,7 @@ Real-time rendering of realistic ocean-like water surfaces using the Inverse Fas
   - [Vertex displacement, normals and LODs](#vertex-displacement-normals-and-lods)
   - [Refraction and underwater fog](#refraction-and-underwater-fog)
   - [Subsurface scattering](#subsurface-scattering)
+  - [Sky reflection](#sky-reflection)
 - [Buoyancy](#buoyancy)
 - [How to use it](#how-to-use-it)
 - [Coming next](#coming-next)
@@ -205,6 +206,20 @@ Where:
 - $`C_{L}`$: Light color.
 
 https://github.com/user-attachments/assets/c5478d7d-75a4-4d4d-93fc-f29d1c3aad05
+
+### Sky reflection
+
+Water reflects the sky’s colors on its surface. A simple way to achieve this is by sampling unity_SpecCube0, a shader variable that provides the skybox's cubemap, using the view direction and the normal of the triangles.
+
+https://github.com/user-attachments/assets/4a65c616-c1b7-47f1-8b68-50b893b05602
+<p align="center">Sky reflection from <a href="https://assetstore.unity.com/packages/2d/textures-materials/sky/allsky-free-10-sky-skybox-set-146014">AllSky Free's</a> Cartoon Base NightSky, Cold Night and Deep Dusk skyboxes.</p>
+
+
+If you are working with bright skyboxes like Unity's default skybox, you can sample it using only the normals for a more uniform result.
+
+![SamplingDifferences](https://github.com/user-attachments/assets/319d2504-8d2e-4697-8997-73f856446406)
+<p align="center">Unity's default skybox sampling. Left using view direction and normals, right using only normals.</p>
+
 
 ## Buoyancy
 
