@@ -115,8 +115,6 @@ Shader "Custom/Water" {
             // Ashikhmin Shirley BRDF
             half _EX;
             half _EY;
-            TEXTURECUBE(_ReflectionCubemap);
-            SAMPLER(sampler_ReflectionCubemap);
 
             half _RefractionStrength;
             half _WaterFogDensity;
@@ -179,6 +177,16 @@ Shader "Custom/Water" {
                 return coeff * _SubsurfaceScatteringColor * _MainLightColor;
             }
 
+            // Returns the reflection of the sky color by sampling the skybox cubemap.
+            half3 EnvironmentReflections (float3 viewDir, float3 normalWS) {
+                float3 reflectionDir = -reflect(viewDir, normalWS);
+                //float3 reflectionDir = normalWS; // Using only normals when sampling bright skyboxes can give better results.
+                half3 environment = SAMPLE_TEXTURECUBE(unity_SpecCube0, samplerunity_SpecCube0, reflectionDir);
+                // Multiply by pi (or any other constant of your choice) to balance the contribution in the final lighting model.  
+                // Otherwise, the sky reflection will be overshadowed by other components.
+                return environment * M_PI * _EnvironmentReflectionStrength;
+            }
+
             float NormalDistribution(float3 h, float3 normalWS, float3 viewDir, float roughness) {
                 float alpha = roughness * roughness;
                 float alphaSquare = alpha * alpha;
@@ -196,13 +204,6 @@ Shader "Custom/Water" {
 
             float GeometryShadowingFunction(float3 normalWS, float3 viewDir, float3 lightDir, float roughness) {
                 return SchlickBeckmannGS(normalWS, viewDir, roughness) * SchlickBeckmannGS(normalWS, lightDir, roughness);    
-            }
-
-            half3 EnvironmentReflections (float3 viewDir, float3 normalWS) {
-                //float3 reflectionDir = viewDir.zyx;
-                float3 reflectionDir = normalWS;
-                half3 environment = SAMPLE_TEXTURECUBE(_ReflectionCubemap, sampler_ReflectionCubemap, reflectionDir);
-                return environment * M_PI * _EnvironmentReflectionStrength;
             }
 
             // https://www.researchgate.net/publication/2523875_An_anisotropic_phong_BRDF_model
