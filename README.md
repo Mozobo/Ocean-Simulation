@@ -209,10 +209,46 @@ https://github.com/user-attachments/assets/c5478d7d-75a4-4d4d-93fc-f29d1c3aad05
 
 ### Sky reflection
 
-Water reflects the sky’s colors on its surface. A simple way to achieve this is by sampling unity_SpecCube0, a shader variable that provides the skybox's cubemap, using the view direction and the normal of the triangles.
+Water reflects the sky’s colors on its surface. A simple way to achieve this is by sampling ```unity_SpecCube0```, a shader variable that stores the currently active reflection probe’s cubemap.
+
+```
+float3 reflectionDir = reflect(viewDir, normalWS);
+half3 environment = SAMPLE_TEXTURECUBE(unity_SpecCube0, samplerunity_SpecCube0, reflectionDir);
+```
+
+If you don't need real-time reflections or a higher-resolution cubemap, you can skip the next paragraphs.
+
+If no reflection probe exists in the scene, ```unity_SpecCube0``` defaults to the skybox, otherwise it stores the cubemap of the last baked probe. By default, reflection probes in URP are baked because it is optimized for performance, meaning they capture a static reflection of the environment rather than updating dynamically each frame. 
+
+To have real-time updates on ```unity_SpecCube0```, instantiate a real-time [ReflectionProbe](https://docs.unity3d.com/2018.4/Documentation/Manual/class-ReflectionProbe.html) at the start of the execution and Unity will do its thing, there is no need to assign it to any shader or material:
+
+```
+GameObject probeObject = new GameObject("RealtimeReflectionProbe");
+ReflectionProbe reflectionProbe = probeObject.AddComponent<ReflectionProbe>();
+
+reflectionProbe.mode = UnityEngine.Rendering.ReflectionProbeMode.Realtime;
+reflectionProbe.refreshMode = UnityEngine.Rendering.ReflectionProbeRefreshMode.EveryFrame;
+reflectionProbe.timeSlicingMode = UnityEngine.Rendering.ReflectionProbeTimeSlicingMode.AllFacesAtOnce;
+reflectionProbe.clearFlags = UnityEngine.Rendering.ReflectionProbeClearFlags.Skybox;
+reflectionProbe.cullingMask = 0;
+```
+
+If performance is a concern, you can use other time-slicing modes or refresh the probe only when necessary.
+
+Unity may use a lower-resolution render target or compress the cubemap's data. You can improve the resolution by assigning a custom cubemap [RenderTexture](https://docs.unity3d.com/6000.0/Documentation/ScriptReference/RenderTexture.html):
+
+```
+RenderTexture realtimeTexture = new RenderTexture(reflectionProbe.resolution, reflectionProbe.resolution, 16);
+realtimeTexture.dimension = UnityEngine.Rendering.TextureDimension.Cube;
+realtimeTexture.Create();
+
+reflectionProbe.realtimeTexture = realtimeTexture;
+```
+
+This results in more detailed data in ```unity_SpecCube0``` and sharper reflections compared to the default behavior.
 
 https://github.com/user-attachments/assets/4a65c616-c1b7-47f1-8b68-50b893b05602
-<p align="center">Sky reflection from <a href="https://assetstore.unity.com/packages/2d/textures-materials/sky/allsky-free-10-sky-skybox-set-146014">AllSky Free's</a> Cartoon Base NightSky, Cold Night and Deep Dusk skyboxes.</p>
+<p align="center">Sky reflection from <a href="https://assetstore.unity.com/packages/2d/textures-materials/sky/allsky-free-10-sky-skybox-set-146014">AllSky Free's</a> Cartoon Base NightSky, Cold Night and Deep Dusk skyboxes. Real-time skybox changes.</p>
 
 
 If you are working with bright skyboxes like Unity's default skybox, you can sample it using only the normals for a more uniform result.
