@@ -245,6 +245,25 @@ public class WaterBody : MonoBehaviour
         InitializeTimeDependentSpectrumComputeShader();
         InitializeResultTexturesFillerComputeShader();
 
+        // Create the real-time ReflectionProbe whose cubemap will be accessible through unity_SpecCube0 in the water shader.
+        GameObject probeObject = new GameObject("RealtimeReflectionProbe");
+        ReflectionProbe reflectionProbe = probeObject.AddComponent<ReflectionProbe>();
+        probeObject.transform.SetParent(transform);
+
+        // Configure the ReflectionProbe for real-time updates.
+        reflectionProbe.mode = ReflectionProbeMode.Realtime;
+        reflectionProbe.refreshMode = ReflectionProbeRefreshMode.EveryFrame;
+        reflectionProbe.timeSlicingMode = ReflectionProbeTimeSlicingMode.AllFacesAtOnce;
+        reflectionProbe.clearFlags = ReflectionProbeClearFlags.Skybox;
+        reflectionProbe.cullingMask = 0; // Exclude all objects from being rendered in the probe
+
+        // Create and assign a higher-resolution cubemap render texture to the ReflectionProbe.
+        RenderTexture realtimeTexture = new RenderTexture(reflectionProbe.resolution, reflectionProbe.resolution, 16);
+        realtimeTexture.dimension = UnityEngine.Rendering.TextureDimension.Cube; // Important: Set to Cubemap
+        realtimeTexture.Create();
+        
+        reflectionProbe.realtimeTexture = realtimeTexture;
+
         material.SetInt("_NbCascades", cascades.Length);
         material.SetTexture("_DisplacementsTextures", displacementsTextures);
         material.SetTexture("_DerivativesTextures", derivativesTextures);
