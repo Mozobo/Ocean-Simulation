@@ -186,7 +186,8 @@ Shader "Custom/Water" {
                 // Otherwise, the sky reflection will be overshadowed by other components.
                 return environment * M_PI * _EnvironmentReflectionStrength;
             }
-
+            
+            // Code source: https://rtarun9.github.io/blogs/physically_based_rendering/#what-is-physically-based-rendering
             float NormalDistribution(float3 h, float3 normalWS, float3 viewDir, float roughness) {
                 float alpha = roughness * roughness;
                 float alphaSquare = alpha * alpha;
@@ -194,18 +195,31 @@ Shader "Custom/Water" {
                 
                 return alphaSquare / (max(M_PI * pow((nDotH * nDotH * (alphaSquare - 1.0f) + 1.0f), 2.0f), FLT_MIN));
             }
-
+            
+            // Code source: https://rtarun9.github.io/blogs/physically_based_rendering/#what-is-physically-based-rendering
             float SchlickBeckmannGS(float3 normalWS, float3 x, float roughness) {
                 float k = roughness / 2.0f;
                 float nDotX = saturate(dot(normalWS, x));
                 
                 return nDotX / (max((nDotX * (1.0f - k) + k), FLT_MIN));
             }
-
+            
+            // Code source: https://rtarun9.github.io/blogs/physically_based_rendering/#what-is-physically-based-rendering
             float GeometryShadowingFunction(float3 normalWS, float3 viewDir, float3 lightDir, float roughness) {
                 return SchlickBeckmannGS(normalWS, viewDir, roughness) * SchlickBeckmannGS(normalWS, lightDir, roughness);    
             }
 
+            // Computes the Cook-Torrance BRDF model for specular reflection
+            // Code source: https://rtarun9.github.io/blogs/physically_based_rendering/#what-is-physically-based-rendering
+            half3 CookTorranceBRDF(float3 h, float3 normalWS, float3 viewDir, float3 lightDir, float fresnel, float roughness) {
+                if (dot(lightDir, float3(0.0, 1.0, 0.0)) <= 0.0) return 0.0;
+                float normalDistribution = max(NormalDistribution(h, normalWS, viewDir, roughness), 0.0);
+                float geometryFunction = max(GeometryShadowingFunction(normalWS, viewDir, lightDir, roughness), 0.0);
+
+                return _MainLightColor * normalDistribution * geometryFunction / max(8.0f * saturate(dot(viewDir, normalWS)) * saturate(dot(lightDir, normalWS)), FLT_MIN);
+            }
+
+            // Computes the Ashikhmin-Shirley anisotropic BRDF model for specular reflection.
             // https://www.researchgate.net/publication/2523875_An_anisotropic_phong_BRDF_model
             half3 AshikhminShirleyBRDF(float3 h, float3 viewDir, float3 lightDir, float3 normalWS, float fresnel, float ex, float ey) {
                 if (dot(lightDir, float3(0.0, 1.0, 0.0)) <= 0.0) return 0.0;
@@ -213,22 +227,8 @@ Shader "Custom/Water" {
                 float sin2PhiH = max((h.y * h.y) / max(1.0 - h.z * h.z, FLT_MIN), 0.0);
                 float d = sqrt((ex + 1) * (ey + 1)) * pow(max(dot(h, normalWS), 0.0), ex * cos2PhiH + ey * sin2PhiH);
 
-                float specular = max(d * fresnel / max(4 * M_PI * dot(h, viewDir) * max(dot(normalWS, viewDir), dot(normalWS, lightDir)), FLT_MIN), 0.0);
-
-                //float diffuse = max((28 / (23 * M_PI)) * (1 - fresnel) * (1 - pow(1 - 0.5 * dot(n, l), 5)) * (1 - pow(1 - 0.5 * dot(n, v), 5)), 0.0);
-
-                return _MainLightColor * specular;
+                return _MainLightColor * max(d * fresnel / max(8 * M_PI * dot(h, viewDir) * max(dot(normalWS, viewDir), dot(normalWS, lightDir)), FLT_MIN), 0.0);
             }
-
-            half3 CookTorranceBRDF(float3 h, float3 normalWS, float3 viewDir, float3 lightDir, float fresnel, float roughness) {
-                if (dot(lightDir, float3(0.0, 1.0, 0.0)) <= 0.0) return 0.0;
-                float normalDistribution = max(NormalDistribution(h, normalWS, viewDir, roughness), 0.0);
-                float geometryFunction = max(GeometryShadowingFunction(normalWS, viewDir, lightDir, roughness), 0.0);
-
-                // https://rtarun9.github.io/blogs/physically_based_rendering/#what-is-physically-based-rendering
-                return _MainLightColor * normalDistribution * geometryFunction / max(4.0f * saturate(dot(viewDir, normalWS)) * saturate(dot(lightDir, normalWS)), FLT_MIN);
-            }
-
 
             TessellationControlPoint Vertex(VertexData input) {
                 TessellationControlPoint output;
