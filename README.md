@@ -17,6 +17,7 @@ Real-time rendering of realistic ocean-like water surfaces using the Inverse Fas
   - [Refraction and underwater fog](#refraction-and-underwater-fog)
   - [Subsurface scattering](#subsurface-scattering)
   - [Sky reflection](#sky-reflection)
+  - [Sun reflections](#sun-reflections)
 - [Buoyancy](#buoyancy)
 - [How to use it](#how-to-use-it)
 - [Coming next](#coming-next)
@@ -255,6 +256,13 @@ If you are working with bright skyboxes like Unity's default skybox, you can sam
 
 ![SamplingDifferences](https://github.com/user-attachments/assets/319d2504-8d2e-4697-8997-73f856446406)
 <p align="center">Unity's default skybox sampling. Left using view direction and normals, right using only normals.</p>
+
+### Sun reflections
+
+Sun reflections are handled using a [BRDF](https://en.wikipedia.org/wiki/Bidirectional_reflectance_distribution_function) approach. The [Cook–Torrance BRDF](https://graphicscompendium.com/gamedev/15-pbr) (using [Tarun Ramaswamy's implementation](https://rtarun9.github.io/blogs/physically_based_rendering/#what-is-physically-based-rendering)) is the main model since it works well with the microfaceted nature of water. But as the sun lowers, reflections become more scattered and stretched across the surface. To handle this shift, the Cook–Torrance model blends with the [Ashikhmin–Shirley BRDF](https://www.researchgate.net/publication/2523875_An_anisotropic_phong_BRDF_model), which I think better captures how light spreads at glancing angles.
+
+https://github.com/user-attachments/assets/ccbc7531-01de-406d-a3a4-e8311fdf97c3
+<p align="center">Sun reflections using Unity's default skybox. As the sun sets, the model goes from plain Cook-Torrance to a Cook-Torrance + Ashikhmin–Shirley hybrid.</p>
 
 
 ## Buoyancy
