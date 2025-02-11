@@ -353,7 +353,7 @@ Shader "Custom/Water" {
                 float fresnel = R0 + (1 - R0) * pow(1.0 - saturate(dot(normalWS, input.viewDir)), 5 * exp(-2.69*_Roughness)) / (1 + 22.7 * pow(_Roughness, 1.5));
                 float fresnelH = R0 + (1 - R0) * pow(1.0 - saturate(dot(halfwayVec, input.viewDir)), 5);
 
-                // The shadow coords are computed in the fragment stage because if computed in the domain, the borders between shadow cascades appear as shadows
+                // Shadow coords and occlusion are computed in the fragment shader for better resolution.
                 float shadowFactor = MainLightRealtimeShadow(TransformWorldToShadowCoord(input.positionWS));
 
                 half3 refraction = UnderwaterView(input.positionSS, normalWS);
