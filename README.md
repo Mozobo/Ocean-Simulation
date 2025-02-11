@@ -18,6 +18,7 @@ Real-time rendering of realistic ocean-like water surfaces using the Inverse Fas
   - [Subsurface scattering](#subsurface-scattering)
   - [Sky reflection](#sky-reflection)
   - [Sun reflections](#sun-reflections)
+  - [Shadows](#shadows)
 - [Buoyancy](#buoyancy)
 - [How to use it](#how-to-use-it)
 - [Coming next](#coming-next)
@@ -263,6 +264,36 @@ Sun reflections are handled using a [BRDF](https://en.wikipedia.org/wiki/Bidirec
 
 https://github.com/user-attachments/assets/ccbc7531-01de-406d-a3a4-e8311fdf97c3
 <p align="center">Sun reflections using Unity's default skybox. As the sun sets, the model goes from plain Cook-Torrance to a Cook-Torrance + Ashikhmin–Shirley hybrid.</p>
+
+### Shadows
+
+Even though water is transparent, objects can still cast visible shadows on its surface. By default, URP does not allow transparent materials to receive shadows, as they are typically excluded from shadow calculations. To work around this, we explicitly sample the [shadow map](https://docs.unity3d.com/Manual/shadow-mapping.html) in the shader to determine the amount of shadow on a fragment:
+
+```
+float4 shadowCoord = TransformWorldToShadowCoord(input.positionWS);
+float realtimeShadow  = MainLightRealtimeShadow(shadowCoord);
+```
+
+You can tweak the pipeline asset's shadows settings, such as the number of cascades, rendering distance or soft shadows, to match your needs:
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/786d7aa2-4844-421a-860f-43f23687701d" alt="PipelineAssetShadowsSettings"/>
+</p>
+
+In some projects, I've seen shadow map sampling in the vertex shader. This is often done for performance reasons since vertex shading is less expensive than per-fragment calculations, but at the cost of lower resolution:
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/9c25ef41-1ca3-4208-86de-73d60ba03671" alt="ShadowSamplingVertexShader" width="49.5%"/>
+  <img src="https://github.com/user-attachments/assets/b0e6a61f-3595-49f7-b417-007ccb32ae4b" alt="AlphaChannel" width="49.5%"/>
+  <img src="https://github.com/user-attachments/assets/46a76fb1-5b8d-48e5-a34a-31e0739a500e" alt="AlphaChannel" width="49.5%"/>
+</p>
+<p align="center">Results of the different ways to sample the shadows. 
+  1 - Get both shadow coords and occlusion amount in the vertex/domain shader, bad resolution. 
+  2 - Get shadow coords in the vertex/domain shader and the occlusion amount i the fragment shader, visible separation at cascade transitions. 
+  3 - Get both shadow coords and occlusion amount in the fragment shader, good resolution.</p>
+
+https://github.com/user-attachments/assets/59e1a9dc-f387-44a8-bb9f-74961ac4c46f
+<p align="center">Real-time shadows with manual sampling.</p>
+
 
 
 ## Buoyancy
