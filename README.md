@@ -19,6 +19,7 @@ Real-time rendering of realistic ocean-like water surfaces using the Inverse Fas
   - [Sky reflection](#sky-reflection)
   - [Sun reflections](#sun-reflections)
   - [Shadows](#shadows)
+  - [Final light model](#final-light-model)
 - [Buoyancy](#buoyancy)
 - [How to use it](#how-to-use-it)
 - [Coming next](#coming-next)
@@ -293,6 +294,58 @@ In some projects, I've seen shadow map sampling in the vertex shader. This is of
 
 https://github.com/user-attachments/assets/59e1a9dc-f387-44a8-bb9f-74961ac4c46f
 <p align="center">Real-time shadows with manual sampling.</p>
+
+### Final light model
+
+The final light model combines the previous sections. There are two main light groups: light components that come from under the water, and light components that come from the water surface.
+
+The underwater group is determined by the refracted and attenuated light, as well as subsurface scattering:
+
+```math
+L_{underwater} = L_{refraction + fog} + L_{SSS}
+```
+
+The surface group consists of sky reflection and direct sunlight reflection, modulated by shadow occlusion:
+
+```math
+L_{surface} = L_{sky} + L_{sun} · O_{shadow}
+```
+
+[Fresnel effect](https://www.dorian-iten.com/fresnel/), computed using [Schlick's approximation](https://en.wikipedia.org/wiki/Schlick%27s_approximation) and its approximation for the BRDF [suggested by ATLAS developers](https://gpuopen.com/gdc-presentations/2019/gdc-2019-agtd6-interactive-water-simulation-in-atlas.pdf#page=49), governs the blending between them:
+
+```math
+R_{0} = \left( \frac{n_{1} - n_{2}}{n_{1} + n_{2}} \right)^{2}
+```
+
+```math
+R(\theta) = R_{0} + (1 - R_{0}) · \frac{(1 - cos(\theta))^{5 · exp(-2.69 · \alpha_{v})}}{1 + 22.7 · \alpha_{v}^{1.5}}
+```
+
+```math
+L_{blend} = lerp(L_{underwater}, \space L_{surface}, \space R_{\theta})
+```
+
+where:
+
+- $n_{1}$, $n_{2}$: Refractive indices of air and water, respectively.
+- $R_{0}$: Reflectance at normal incidence.
+- $\alpha_{v}$: Surface roughness
+- $\theta$: Angle between the view direction and the surface normal.
+
+Then the blended result is blended again with the shadow color based on the occlusion:
+
+```math
+L_{final} = lerp(L_{blend}, \space shadowColor, \space 1 - O_{shadow})
+```
+
+<br>
+<br>
+
+https://github.com/user-attachments/assets/5f009d10-fcf5-4b18-89fc-641b98ba20e9
+
+https://github.com/user-attachments/assets/43178a34-5ee0-40db-9d9c-4249d91813a9
+
+<p align="center">Examples of the final light model with Unity's default skybox. Sky reflection using only normals.</p>
 
 
 
