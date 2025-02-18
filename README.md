@@ -21,8 +21,6 @@ Real-time rendering of realistic ocean-like water surfaces using the Inverse Fas
   - [Shadows](#shadows)
   - [Final light model](#final-light-model)
 - [Buoyancy](#buoyancy)
-- [How to use it](#how-to-use-it)
-- [Coming next](#coming-next)
 - [References](#references)
 
 ## Mesh generation
@@ -377,7 +375,150 @@ Each object with the [```BuoyantObject.cs```](https://github.com/Mozobo/Ocean-Si
 > [!NOTE]  
 > A video showing boyancy will be added here.
 
-## How to use it
-## Coming next
 ## References
 
+**Mesh generation**
+
+Flick, Jasper. (n.d.). Procedural Grid, a Unity C# tutorial. Catlike Coding. https://catlikecoding.com/unity/tutorials/procedural-grid/
+
+<br>
+
+**Ocean spectrum**
+
+Tessendorf, Jerry. (2001). Simulating Ocean Water. SIG-GRAPH'99 Course Note. ResearchGate. https://www.researchgate.net/publication/264839743_Simulating_Ocean_Water
+
+Christopher J. Horvath. (2015). Empirical directional wave spectra for computer graphics. In Proceedings of the 2015 Symposium on Digital Production (DigiPro '15). Association for Computing Machinery, New York, NY, USA, 29–39. https://doi.org/10.1145/2791261.2791267
+
+WikiWaves. (n.d.). Ocean-Wave Spectra. Wikiwaves. https://wikiwaves.org/Ocean-Wave_Spectra#JONSWAP_Spectrum
+
+Jump Trajectory. (2020, December 6). Ocean waves simulation with Fast Fourier transform. YouTube. https://www.youtube.com/watch?v=kGEqaX4Y4bQ
+
+Acerola. (2023, August 31). I tried simulating the entire ocean. YouTube. https://www.youtube.com/watch?v=yPfagLeUa7k
+
+ScienceDirect (n. d.). Directional Spreading. ScienceDirect. https://www.sciencedirect.com/topics/engineering/directional-spreading
+
+Gamper, Thomas. (2018, Aug 28). Ocean Surface Generation and Rendering. TU Wien. https://www.cg.tuwien.ac.at/research/publications/2018/GAMPER-2018-OSG/GAMPER-2018-OSG-thesis.pdf
+
+Zucconi, Alan. (2015, Sep 16). How to generate Gaussian distributed numbers. Alan Zucconi. https://www.alanzucconi.com/2015/09/16/how-to-sample-from-a-gaussian-distribution/
+
+<br>
+
+**IFFT**
+
+Flügge, Fynn-Jorin. (2017). Realtime GPGPU FFT ocean water simulation. TUHH Open Research. https://doi.org/10.15480/882.1436
+
+Wikipedia contributors. (2025, February 18). Cooley–Tukey FFT algorithm. Wikipedia. https://en.wikipedia.org/wiki/Cooley%E2%80%93Tukey_FFT_algorithm
+
+Tessendorf, Jerry. (2001). Simulating Ocean Water. SIG-GRAPH'99 Course Note. ResearchGate. https://www.researchgate.net/publication/264839743_Simulating_Ocean_Water
+
+Jump Trajectory. (2020, December 6). Ocean waves simulation with Fast Fourier transform. YouTube. https://www.youtube.com/watch?v=kGEqaX4Y4bQ
+
+Acerola. (2023, August 31). I tried simulating the entire ocean. YouTube. https://www.youtube.com/watch?v=yPfagLeUa7k
+
+Wolfram Research, Inc. (n.d.). Complex Multiplication. Wolfram MathWorld. https://mathworld.wolfram.com/ComplexMultiplication.html
+
+Wikipedia contributors. (2025, Jan 12). Euler’s formula. Wikipedia. https://en.wikipedia.org/wiki/Euler%27s_formula
+
+Wikipedia contributors. (2025, Jan 21). Butterfly diagram. Wikipedia. https://en.wikipedia.org/wiki/Butterfly_diagram
+
+<br>
+
+**Cascades**
+
+Unity Technologies. (n.d.). Unity - Scripting API: RenderTexture. Unity Documentation. https://docs.unity3d.com/6000.0/Documentation/ScriptReference/RenderTexture.html
+
+Unity Technologies. (n.d.). Unity - Scripting API: Rendering.TextureDimension.Tex2DArray. Unity Documentation. https://docs.unity3d.com/6000.0/Documentation/ScriptReference/Rendering.TextureDimension.Tex2DArray.html
+
+Wikipedia contributors. (2025, Feb 4). Wavelength. Wikipedia. https://en.wikipedia.org/wiki/Wavelength
+
+Wikipedia contributors. (2025, Feb 10). Wavenumber. Wikipedia. https://en.wikipedia.org/wiki/Wavenumber
+
+<br>
+
+**Tesselation**
+
+OpenGL Wiki. (2020, Oct 11). Tessellation. OpenGL Wiki. https://www.khronos.org/opengl/wiki/tessellation
+
+NedMakesGames. (2021, Nov 24). Mastering tessellation shaders and their many uses in unity. Medium. https://nedmakesgames.medium.com/mastering-tessellation-shaders-and-their-many-uses-in-unity-9caeb760150e
+
+Flick, Jasper. (2017, Nov 30). Tessellation. Catlike Coding. https://catlikecoding.com/unity/tutorials/advanced-rendering/tessellation/
+
+Unity Technologies. (n.d.). Unity - Manual: Tessellation Surface Shader examples in the Built-In Render Pipeline. Unity Documentation. https://docs.unity3d.com/Manual/SL-SurfaceShaderTessellation.html
+
+TwoTailsGames. (n.d.). Unity-Built-in-Shaders/CGIncludes/Tessellation.cginc at master · TwoTailsGames/Unity-Built-in-Shaders. Github. https://github.com/TwoTailsGames/Unity-Built-in-Shaders/blob/master/CGIncludes/Tessellation.cginc
+
+Unity Technologies. (n.d.). Graphics/Packages/com.unity.render-pipelines.core/ShaderLibrary/Tessellation.hlsl at master · Unity-Technologies/Graphics. GitHub. https://github.com/Unity-Technologies/Graphics/blob/master/Packages/com.unity.render-pipelines.core/ShaderLibrary/Tessellation.hlsl
+
+<br>
+
+**Vertex displacement, normals and LODs**
+
+Wikipedia contributors. (2025, Feb 5). Level of detail (computer graphics). Wikipedia. https://en.wikipedia.org/wiki/Level_of_detail_(computer_graphics)
+
+Wikipedia contributors. (2024, November 28). MIPMap. Wikipedia. https://en.wikipedia.org/wiki/Mipmapping
+
+<br>
+
+**Refraction and underwater fog**
+
+Flick, Jasper. (2018, August 30). Looking through water. Catlike Coding. https://catlikecoding.com/unity/tutorials/flow/looking-through-water/
+
+Unity Technologies. (n.d.). Unity - Manual: ShaderLab: GrabPass. Unity Documentation. https://docs.unity3d.com/es/530/Manual/SL-GrabPass.html
+
+Unity Technologies. (n.d.). Universal Render Pipeline Asset. Unity Documentation. https://docs.unity3d.com/Packages/com.unity.render-pipelines.universal@7.1/manual/universalrp-asset.html#general
+
+<br>
+
+**Subsurface scattering**
+
+Wikipedia contributors. (2024, May 18). Subsurface scattering. Wikipedia. https://en.wikipedia.org/wiki/Subsurface_scattering
+
+Zucconi, Alan. (2017, Aug 30). Fast subsurface Scattering in unity (Part 1). Alan Zucconi. https://www.alanzucconi.com/2017/08/30/fast-subsurface-scattering-1/
+
+Zucconi, Alan. (2017, Aug 30). Fast subsurface Scattering in unity (Part 2). Alan Zucconi. https://www.alanzucconi.com/2017/08/30/fast-subsurface-scattering-2/
+
+Andersson, Tomas. (2018, May 19). Real-time water shader in unity. Real-time Water Shader in Unity. https://unitywatershader.wordpress.com/
+
+<br>
+
+**Sky reflection**
+
+rpgwhitelock. (2024, Jul 20). AllSky Free - 10 Sky / SkyBox Set | 2D Sky | Unity Asset Store. Unity Asset Store. https://assetstore.unity.com/packages/2d/textures-materials/sky/allsky-free-10-sky-skybox-set-146014
+
+<br>
+
+**Sun reflections**
+
+Wikipedia contributors. (2024, Oct 3). Bidirectional reflectance distribution function. Wikipedia. https://en.wikipedia.org/wiki/Bidirectional_reflectance_distribution_function
+
+Dunn, Ian & Wood, Zoë. (n.d.). Cook-Torrance Reflectance Model. Graphics Programming Compendium. https://graphicscompendium.com/gamedev/15-pbr
+
+Ramaswamy, Tarun. (n. d.). Notes on physically based rendering. Tarun Ramaswamy. https://rtarun9.github.io/blogs/physically_based_rendering/
+
+Ashikhmin, Michael & Shirley, Peter. (2001). An anisotropic phong BRDF model. Journal of Graphics Tools. 5. 10.1080/10867651.2000.10487522. https://www.researchgate.net/publication/2523875_An_anisotropic_phong_BRDF_model
+
+<br>
+
+**Shadows**
+
+Unity Technologies. (n.d.). Use shadows in a custom URP shader. Unity Documentation  https://docs.unity3d.com/Packages/com.unity.render-pipelines.universal@16.0/manual/use-built-in-shader-methods-shadows.html
+
+Unity Technologies. (n.d.). Unity - Manual: Shadow mapping. Unity Documentation. https://docs.unity3d.com/Manual/shadow-mapping.html
+
+Ned Makes Games. (2022, August 15). Let There Be Light (And Shadow) | Writing Unity URP Code Shaders Tutorial. YouTube. https://www.youtube.com/watch?v=1bm0McKAh9E
+
+<br>
+
+**Final light model**
+
+Iten, Dorian. (n.d.). Understanding the Fresnel Effect. Doprian Iten. https://www.dorian-iten.com/fresnel/
+
+Wikipedia contributors. (2024, Dec 26). Schlick’s approximation. Wikipedia. https://en.wikipedia.org/wiki/Schlick%27s_approximation
+
+Mihelich, Mark & Tcheblokov, Tim. (2019, Mar 18). Wakes, Explosions and Lighting: Interactive Water Simulation in 'ATLAS'. Game Developers Conference. https://gpuopen.com/gdc-presentations/2019/gdc-2019-agtd6-interactive-water-simulation-in-atlas.pdf
+
+<br>
+
+**Buoyancy**
+
+Unity Technologies. (n.d.). Unity - Scripting API: AsyncGPUReadback. Unity Documentation. https://docs.unity3d.com/6000.0/Documentation/ScriptReference/Rendering.AsyncGPUReadback.html
