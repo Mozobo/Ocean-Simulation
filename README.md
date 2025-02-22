@@ -25,7 +25,7 @@ Real-time rendering of realistic ocean-like water surfaces using the Inverse Fas
 
 ## Mesh generation
 
-The first step is to generate a mesh that forms the base of the water body. In this project, a low-resolution plane is created. The idea is to increase the number of vertices in the areas close to the camera using a tessellation shader. The code in ```MeshGenerator.cs``` is based on [Catlike Coding's Procedural Grid tutorial](https://catlikecoding.com/unity/tutorials/procedural-grid/), but adjusted to have the plane centered at the GameObject's position and to allow the modification of the triangles's size.
+The first step is to generate a mesh that forms the base of the water body. In this project, a low-resolution plane is created. The idea is to increase the number of vertices in the areas close to the camera using a tessellation shader. The code in [```MeshGenerator.cs```](https://github.com/Mozobo/Ocean-Simulation/blob/main/Assets/Scripts/MeshGenerator.cs) is based on [Catlike Coding's Procedural Grid tutorial](https://catlikecoding.com/unity/tutorials/procedural-grid/), but adjusted to have the plane centered at the GameObject's position and to allow the modification of the triangles's size.
 
 > [!TIP]
 > For big planes I recommend keeping the triangles's size between 25 and 100 . Below 25 will be too resource consuming due to the shader running for each tesselated triangle and above 100 will probably not have enough resolution even with the tessellation.
@@ -110,7 +110,7 @@ The complete directional ocean spectrum is given by:
 S(\omega, \theta) = S_{TMA}(\omega) · D(\omega, \theta) · exp(-k^{2}fade^{2})
 ```
 
-The result of the Fourier amplitudes calculation, implemented in the ```WaterBody.cs``` script and the ```InitialSpectrum.compute``` compute shader, is a texture representing wave energy values distributed across frequencies and directions:
+The result of the Fourier amplitudes calculation, implemented in the [```WaterBody.cs```](https://github.com/Mozobo/Ocean-Simulation/blob/main/Assets/Scripts/WaterBody.cs) script and the [```InitialSpectrum.compute```](https://github.com/Mozobo/Ocean-Simulation/blob/main/Assets/Shaders/Compute%20Shaders/InitialSpectrum.compute) compute shader, is a texture representing wave energy values distributed across frequencies and directions:
 
 <p align="center">
   <img src="https://github.com/user-attachments/assets/615e731b-0309-4c79-a711-793efbc788a7" alt="RedChannel"/>
@@ -129,7 +129,7 @@ This texture encodes the energy distribution of various wave components. Each va
 
 ## IFFT
 
-The Inverse Fast Fourier Transform is a mathematical algorithm used to convert the frequency-domain data into its corresponding time-domain representation. The implementation in the ```IFFT.cs``` script and the ```IFFT.compute``` compute shader follows the [Cooley-Tukey](https://en.wikipedia.org/wiki/Cooley%E2%80%93Tukey_FFT_algorithm) IFFT algorithm walkthrough by [Fynn-Jorin Flügge](https://doi.org/10.15480/882.1436).
+The Inverse Fast Fourier Transform is a mathematical algorithm used to convert the frequency-domain data into its corresponding time-domain representation. The implementation in the [```IFFT.cs```](https://github.com/Mozobo/Ocean-Simulation/blob/main/Assets/Scripts/IFFT.cs) script and the [```IFFT.compute```](https://github.com/Mozobo/Ocean-Simulation/blob/main/Assets/Shaders/Compute%20Shaders/IFFT.compute) compute shader follows the [Cooley-Tukey](https://en.wikipedia.org/wiki/Cooley%E2%80%93Tukey_FFT_algorithm) IFFT algorithm walkthrough by [Fynn-Jorin Flügge](https://doi.org/10.15480/882.1436).
 
 ## Cascades
 
@@ -160,6 +160,7 @@ The mesh detail is enhanced by applying [tessellation](https://www.khronos.org/o
 Tessellation factors are calculated based on the distance between the triangles and the camera. Within a customizable maximum radius, the tessellation level decreases from an adjustable maximum to none as the distance from the camera increases. For large water bodies to appear realistic, both the tessellation range and maximum tessellation level need to have large values. A linear decrease, like the ones provided by Unity's [Tessellation.cginc](https://github.com/TwoTailsGames/Unity-Built-in-Shaders/blob/master/CGIncludes/Tessellation.cginc) and [Tessellation.hlsl](https://github.com/Unity-Technologies/Graphics/blob/master/Packages/com.unity.render-pipelines.core/ShaderLibrary/Tessellation.hlsl) APIs, would add too many vertices to regions where the detail wouldn't be noticeable, wasting computing resources. This is why I've implemented an adjustable exponential decay factor that provides enough detail to be convincing while maintaining good performance.
 
 https://github.com/user-attachments/assets/1c8b2512-b94c-465c-b2cf-795aa9eb958d
+<p align="center">Distance-based tesselation applied to the mesh.</p>
 
 ### Vertex displacement, normals and LODs
 
@@ -168,6 +169,7 @@ The visual movement of the water is achieved by applying the result of the IFFT 
 An optimization technique used is [Level Of Detail](https://en.wikipedia.org/wiki/Level_of_detail_(computer_graphics)) (LOD), which determines the [mipmap](https://en.wikipedia.org/wiki/Mipmapping) level of the texture to sample based on the distance from the camera, reducing the workload for distant objects.
 
 https://github.com/user-attachments/assets/518b0be2-b5aa-46c7-b29c-0bf99a76755b
+<p align="center">Vertex displacement based on the IFFT results.</p>
 
 ### Refraction and underwater fog
 
@@ -190,6 +192,7 @@ For these values to be automatically filled by the engine in URP, the Depth and 
 </p>
 
 https://github.com/user-attachments/assets/77a77be7-25ff-4183-b148-ec2de364f504
+<p align="center">Refraction and underwater fog with some 3D shapes.</p>
 
 ### Subsurface scattering
 
@@ -207,6 +210,7 @@ Where:
 - $`C_{L}`$: Light color.
 
 https://github.com/user-attachments/assets/c5478d7d-75a4-4d4d-93fc-f29d1c3aad05
+<p align="center">Subsurface scattering based on the sun's position.</p>
 
 ### Sky reflection
 
@@ -353,22 +357,19 @@ Very simple buoyancy system. The idea is to sample the ocean's height at specifi
 
 This is done by sampling the displacement textures, but since the data in RenderTextures is a GPU resource and we need to access it on the CPU, it must be transfered. Unity provides a mechanism for this through [AsyncGPUReadback](https://docs.unity3d.com/6000.0/Documentation/ScriptReference/Rendering.AsyncGPUReadback.html). However, as the documentation states, this method introduces a latency of a few frames, delaying the buoyancy behavior in relation to the movement of the waves.
 
-Every frame, [```Waterbody.cs```](https://github.com/Mozobo/Ocean-Simulation/blob/main/Assets/Scripts/WaterBody.cs) requests displacement data from the GPU. Only the first cascade of the displacements is sampled because sampling more cascades would introduce excessive latency. The data in each pixel is then stored in an array:
+Every frame, [```WaterBody.cs```](https://github.com/Mozobo/Ocean-Simulation/blob/main/Assets/Scripts/WaterBody.cs) requests displacement data from the GPU. Only the first cascade of the displacements is sampled because sampling more cascades would introduce excessive latency. The data in each pixel is then stored in an array:
 
 ```
-void Update() {
-    ...
-    AsyncGPUReadback.Request(displacementsTextures, 0, request => {
-        if (request.hasError) {
-            Debug.LogError("Async GPU Readback failed!");
-            return;
-        }
-        buoyancyData = request.GetData<Color>().ToArray();
-    });
-}
+AsyncGPUReadback.Request(displacementsTextures, 0, request => {
+    if (request.hasError) {
+        Debug.LogError("Async GPU Readback failed!");
+        return;
+    }
+    buoyancyData = request.GetData<Color>().ToArray();
+});
 ```
 
-Which allows to have a public function ```GetWaterHeight``` that maps any given position to an index in the array and returns the corresponding water height.
+Which allows to have a public function [```GetWaterHeight```](https://github.com/Mozobo/Ocean-Simulation/blob/main/Assets/Scripts/WaterBody.cs#L193) that maps any given position to an index in the array and returns the corresponding water height.
 
 Each object with the [```BuoyantObject.cs```](https://github.com/Mozobo/Ocean-Simulation/blob/main/Assets/Scripts/BuoyantObject.cs) script attached checks the water height at its position, calculates the submerged volume, and applies forces to its rigidbody. This simulates both buoyancy and water drag effects. As this is a very simple buoyancy system, the volume calculation is a simplified approximation based on the object's dimensions (x, y, and z) and the difference between the y-coordinate and the water height. It obviously does not accurately represent objects with non-rectangular shapes, but it provides a fast approach.
 
