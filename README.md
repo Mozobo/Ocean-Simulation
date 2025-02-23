@@ -373,8 +373,8 @@ Which allows to have a public function [```GetWaterHeight```](https://github.com
 
 Each object with the [```BuoyantObject.cs```](https://github.com/Mozobo/Ocean-Simulation/blob/main/Assets/Scripts/BuoyantObject.cs) script attached checks the water height at its position, calculates the submerged volume, and applies forces to its rigidbody. This simulates both buoyancy and water drag effects. As this is a very simple buoyancy system, the volume calculation is a simplified approximation based on the object's dimensions (x, y, and z) and the difference between the y-coordinate and the water height. It obviously does not accurately represent objects with non-rectangular shapes, but it provides a fast approach.
 
-> [!NOTE]  
-> A video showing boyancy will be added here.
+https://github.com/user-attachments/assets/657830ef-9e37-4686-a452-e14a6574bb22
+<p align="center">Buoyancy results with some cubes.</p>
 
 ## References
 
