@@ -2,8 +2,9 @@
 
 Real-time rendering of realistic ocean-like water surfaces using the Inverse Fast Fourier Transform (IFFT), in combination with the Joint North Sea Wave Project (JONSWAP) spectrum and the Texel-Marsen-Arsloe (TMA) modification, within Unity's Universal Render Pipeline (URP).
 
-> [!NOTE]  
-> An image or video showcasing the ocean will be added here.
+![Example1](https://github.com/user-attachments/assets/265e1199-d809-4fbd-9963-1ee67f06e730)
+<img src="https://github.com/user-attachments/assets/51d26db7-0fc2-414b-8105-44ffd0447103" alt="Example1" width="49.5%"/> <img src="https://github.com/user-attachments/assets/3bf36866-2396-4d7a-85f2-b4f753ab98c6" alt="Example2" width="49.5%"/>
+
 
 ## Table of contents
 
@@ -512,7 +513,7 @@ Ned Makes Games. (2022, August 15). Let There Be Light (And Shadow) | Writing Un
 
 **Final light model**
 
-Iten, Dorian. (n.d.). Understanding the Fresnel Effect. Doprian Iten. https://www.dorian-iten.com/fresnel/
+Iten, Dorian. (n.d.). Understanding the Fresnel Effect. Dorian Iten. https://www.dorian-iten.com/fresnel/
 
 Wikipedia contributors. (2024, Dec 26). Schlick’s approximation. Wikipedia. https://en.wikipedia.org/wiki/Schlick%27s_approximation
 
