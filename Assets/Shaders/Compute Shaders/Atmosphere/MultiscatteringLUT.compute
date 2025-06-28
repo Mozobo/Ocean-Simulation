@@ -1,0 +1,128 @@
+#pragma kernel ComputeMultiscatteringLUT
+
+static const float PI = 3.14159265;
+static const uint STEPS = 32;
+static const uint SQRTSAMPLES = 8;
+
+uint _LutWidth;
+uint _LutHeight;
+
+float _PlanetRadius;
+float _AtmosphereRadius;
+
+float3 _RayleighScatteringCoefficient;
+float3 _RayleighAbsorptionCoefficient;
+float _RayleighScaleHeight;
+
+float3 _MieScatteringCoefficient;
+float3 _MieAbsorptionCoefficient;
+float _MieScaleHeight;
+
+float3 _OzoneScatteringCoefficient;
+float3 _OzoneAbsorptionCoefficient;
+
+float3 _GroundSpectrumAlbedo;
+
+Texture2D<float4> _TransmittanceLUT;
+SamplerState sampler_TransmittanceLUT;
+RWTexture2D<float4> _MultiscatteringLUT;
+
+bool ComputeAtmosphereTraversalAndPlanetHit(float radius, float cosAngle, out float endDistance) {
+    float offset = -radius * cosAngle;
+    float radius2 = radius * radius;
+    float ray2Center2 = radius2 - offset * offset;
+    float planetRadius2 = _PlanetRadius * _PlanetRadius;
+    if (ray2Center2 < planetRadius2 && cosAngle < 0.0) {
+        float bottomHalfLength = sqrt(planetRadius2 - ray2Center2);
+        endDistance = offset - bottomHalfLength;
+        return true;
+    }
+    else {
+        float atmosphereRadius2 = _AtmosphereRadius * _AtmosphereRadius;
+        float topHalfLength = sqrt(atmosphereRadius2 - ray2Center2);
+        endDistance = topHalfLength + offset; 
+        return false;
+    }
+}
+
+float3 SampleTransmittanceLUT(float radius, float cosAngle) {
+    float2 uv = float2(
+        clamp((radius - _PlanetRadius) / (_AtmosphereRadius - _PlanetRadius), 0.0, 1.0),
+        clamp(0.5 + 0.5 * cosAngle, 0.0, 1.0)
+    );
+    return _TransmittanceLUT.SampleLevel(sampler_TransmittanceLUT, uv, 0).rgb;
+}
+
+[numthreads(8,8,1)]
+void ComputeMultiscatteringLUT (uint3 id : SV_DispatchThreadID) {
+    const float3 up = float3(0.0, 1.0, 0.0);
+    const float uniformPhase = 1.0 / (4.0 * PI);
+
+    float radius = lerp(0.0, _AtmosphereRadius - _PlanetRadius, (id.x + 0.5) / _LutWidth) + _PlanetRadius;
+    float cosSunZenith = lerp(-1.0, 1.0, (id.y + 0.5) / _LutHeight);
+
+    float3 rayOrigin = float3(0.0, radius, 0.0);
+    float3 sunDirection = float3(sqrt(1.0 - cosSunZenith * cosSunZenith), cosSunZenith, 0.0);
+
+    float3 luminance = 0.0;
+    float3 transferFunction = 0.0;
+
+    float3 rayleighExtinctionCoefficient = _RayleighScatteringCoefficient + _RayleighAbsorptionCoefficient;
+    float3 mieExtinctionCoefficient = _MieScatteringCoefficient + _MieAbsorptionCoefficient;
+    float3 ozoneExtinctionCoefficient = _OzoneScatteringCoefficient + _OzoneAbsorptionCoefficient;
+    
+    const uint SAMPLES = SQRTSAMPLES * SQRTSAMPLES;
+    for (uint i = 0; i < SAMPLES; i++) {
+        float z = (float(i) + 0.5) / float(SAMPLES);
+        float xy = sqrt(1.0 - z * z);
+        float azimuth = z * float(SQRTSAMPLES) * PI * 2.0;
+        float3 rayDirection = float3(sin(azimuth) * xy, cos(azimuth) * xy, z);
+
+        float endDistance;
+        bool hitGround = ComputeAtmosphereTraversalAndPlanetHit(radius, rayDirection.y, endDistance);
+        float stepSize = endDistance / float(STEPS);
+        
+        float3 segmentLuminance = 0.0;
+        float3 segmentTransferFunction = 0.0;
+        float3 transmittance = 1.0;
+        float currentDistance = stepSize * 0.5;
+        
+        for (uint j = 0; j < STEPS; j++) {
+            float3 samplePosition = rayOrigin + currentDistance * rayDirection;
+            float sampleRadius = length(samplePosition);
+            float sampleHeight = sampleRadius - _PlanetRadius;
+
+            float rayleighDensity = exp(-sampleHeight/_RayleighScaleHeight);
+            float mieDensity = exp(-sampleHeight/_MieScaleHeight);
+            float ozoneDensity = max(0.0, 1.0 - (sampleHeight - 25000) / 15000);
+
+            float cosSunAngle = dot(up, sunDirection);
+            float3 transmittanceToSun = SampleTransmittanceLUT(sampleRadius, cosSunAngle);
+            float3 sampleScattering = _RayleighScatteringCoefficient * rayleighDensity + _MieScatteringCoefficient * mieDensity + _OzoneScatteringCoefficient * ozoneDensity;
+            float3 inscattering = transmittanceToSun * sampleScattering * uniformPhase;
+
+            float3 sampleExtinction = rayleighExtinctionCoefficient * rayleighDensity + mieExtinctionCoefficient * mieDensity + ozoneExtinctionCoefficient * ozoneDensity;
+            float3 sampleTransmittance = exp(-sampleExtinction * stepSize);
+            float3 nextTransmittance = transmittance * sampleTransmittance;
+            float3 transmittanceIntegral = (transmittance - nextTransmittance) / sampleExtinction;
+
+            segmentLuminance += transmittanceIntegral * inscattering;
+            segmentTransferFunction += transmittanceIntegral * sampleScattering;
+
+            currentDistance += stepSize;
+            transmittance = nextTransmittance;
+        }
+
+        luminance += segmentLuminance;
+        transferFunction += segmentTransferFunction;
+        
+        if (hitGround) {
+            luminance += transmittance * SampleTransmittanceLUT(radius, cosSunZenith) * (_GroundSpectrumAlbedo / PI) * cosSunZenith;
+        }
+
+    }
+
+    float3 color = luminance / (float(SAMPLES) - transferFunction); 
+
+    _MultiscatteringLUT[id.xy] = float4(color, 1.0);
+}

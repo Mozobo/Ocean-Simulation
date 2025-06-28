@@ -1,0 +1,52 @@
+#pragma kernel ComputeTransmittanceLUT
+
+static const float PI = 3.14159265;
+static const uint STEPS = 500;
+
+uint _LutWidth;
+uint _LutHeight;
+
+float _PlanetRadius;
+float _AtmosphereRadius;
+
+float3 _RayleighScatteringCoefficient;
+float3 _RayleighAbsorptionCoefficient;
+float _RayleighScaleHeight;
+
+float3 _MieScatteringCoefficient;
+float3 _MieAbsorptionCoefficient;
+float _MieScaleHeight;
+
+float3 _OzoneScatteringCoefficient;
+float3 _OzoneAbsorptionCoefficient;
+
+RWTexture2D<float4> _TransmittanceLUT;
+
+[numthreads(8,8,1)]
+void ComputeTransmittanceLUT (uint3 id : SV_DispatchThreadID) {
+    float radius = lerp(0.0, _AtmosphereRadius - _PlanetRadius, (id.x + 0.5) / _LutWidth) + _PlanetRadius;
+    float cosSunZenith = lerp(-1.0, 1.0, (id.y + 0.5) / _LutHeight);
+    
+    float3 rayleighExtinctionCoefficient = _RayleighScatteringCoefficient + _RayleighAbsorptionCoefficient;
+    float3 mieExtinctionCoefficient = _MieScatteringCoefficient + _MieAbsorptionCoefficient;
+    float3 ozoneExtinctionCoefficient = _OzoneScatteringCoefficient + _OzoneAbsorptionCoefficient;
+
+    float discriminant = max(0.0, radius * radius * (cosSunZenith * cosSunZenith - 1.0) + _AtmosphereRadius * _AtmosphereRadius);
+    float stepSize = max(0.0, -radius * cosSunZenith + sqrt(discriminant)) / float(STEPS);
+
+    float3 extinction = 0.0;
+    
+    for (uint i = 0; i < STEPS; i++) {
+        float sampleDistance = (float(i) + 0.5) * stepSize;
+        float sampleRadius = sqrt(sampleDistance * sampleDistance + 2.0 * radius * cosSunZenith * sampleDistance + radius * radius);
+        float sampleHeight = sampleRadius - _PlanetRadius;
+
+        float rayleighDensity = exp(-sampleHeight/_RayleighScaleHeight);
+        float mieDensity = exp(-sampleHeight/_MieScaleHeight);
+        float ozoneDensity = max(0.0, 1.0 - (sampleHeight - 25000) / 15000);
+
+        extinction += (rayleighExtinctionCoefficient * rayleighDensity + mieExtinctionCoefficient * mieDensity + ozoneExtinctionCoefficient * ozoneDensity) * stepSize;
+    }
+    
+    _TransmittanceLUT[id.xy] = float4(exp(-extinction), 0.0);
+}
