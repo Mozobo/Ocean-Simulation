@@ -15,6 +15,8 @@ RWTexture2DArray<float4> _InitialSpectrumTextures;
 RWTexture2DArray<float4> _WavesDataTextures;
 StructuredBuffer<float> _Wavelengths;
 StructuredBuffer<float> _Cutoffs;
+StructuredBuffer<float> _Fades;
+StructuredBuffer<float> _Swells;
 
 float _WindSpeed;
 float _WindDirectionX;
@@ -73,8 +75,8 @@ float NormalizationFactor(float s) {
 
 // Returns directional spread from given frequency and angle
 // https://www.sciencedirect.com/topics/engineering/directional-spreading (fig. 5.60)
-float DirectionalSpread(float angularFrequency, float peakAngularFrequency, float theta) {
-    float s = SpreadPower(angularFrequency, peakAngularFrequency) + 16 * tanh(angularFrequency / peakAngularFrequency) * _Swell * _Swell;
+float DirectionalSpread(float angularFrequency, float peakAngularFrequency, float theta, float swell) {
+    float s = SpreadPower(angularFrequency, peakAngularFrequency) + 16 * tanh(angularFrequency / peakAngularFrequency) * swell * swell;
     float2 normalizedWindDirection = normalize(float2(_WindDirectionX, _WindDirectionY));
     float windTheta = atan2(normalizedWindDirection.y, normalizedWindDirection.x);
 
@@ -115,7 +117,7 @@ void CalculateInitialSpectrumTextures(uint3 id : SV_DispatchThreadID) {
             // The peak frequency is calculated here because we also need it for the directional spread
             float peakAngularFrequency = 22 * pow(abs(_Gravity * _Gravity/(_WindSpeed * _Fetch)), 0.3333f);
 
-            _InitialSpectrumTextures[uint3(id.xy, i)] = float4(float2(gaussianRandomNumber1, gaussianRandomNumber2) / 2.0f * sqrt(2.0f * TMACorrection(angularFrequency) * JONSWAP(angularFrequency, peakAngularFrequency) * DirectionalSpread(angularFrequency, peakAngularFrequency, kAngle) * ShortWavesFade(kMagnitude, _Fade) * FrequencyDerivative(kMagnitude, angularFrequency) / kMagnitude * k * k), 0.0f, 0.0f);
+            _InitialSpectrumTextures[uint3(id.xy, i)] = float4(float2(gaussianRandomNumber1, gaussianRandomNumber2) / 2.0f * sqrt(2.0f * TMACorrection(angularFrequency) * JONSWAP(angularFrequency, peakAngularFrequency) * DirectionalSpread(angularFrequency, peakAngularFrequency, kAngle, _Swells[i]) * ShortWavesFade(kMagnitude, _Fades[i]) * FrequencyDerivative(kMagnitude, angularFrequency) / kMagnitude * k * k), 0.0f, 0.0f);
             // WavesData textures contain information of the wave on each pixel
             // float4(direction on the x axis, 1/k for the FFT, direction on the z axis, wave frequency);
             _WavesDataTextures[uint3(id.xy, i)] = float4(kVector.x, 1/kMagnitude, kVector.y, angularFrequency);

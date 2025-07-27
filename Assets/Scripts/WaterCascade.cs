@@ -18,4 +18,8 @@ public class WaterCascade : MonoBehaviour
     // A lower value allows for the inclusion of lower-frequency (longer wavelength) waves.
     // https://en.wikipedia.org/wiki/Wavenumber
     public float cutoffLow = 0.0001f;
+
+    public float swell = 0.4f;
+    
+    public float fade = 0.1f;
 }

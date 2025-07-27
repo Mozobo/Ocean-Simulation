@@ -12,8 +12,6 @@ public class WaterBody : MonoBehaviour
     public float gravity = 9.81f;
     public float fetch = 1.0f;
     public float depth = 4.0f;
-    public float swell = 0.4f;
-    public float fade = 0.1f;
     // ---------------------------
 
     // Buoyancy parameters
@@ -52,6 +50,10 @@ public class WaterBody : MonoBehaviour
     ComputeBuffer wavelengthsBuffer;
     private float[] cutoffs;
     ComputeBuffer cutoffsBuffer;
+    private float[] swells;
+    ComputeBuffer swellsBuffer;
+    private float[] fades;
+    ComputeBuffer fadesBuffer;
 
     private Color[] buoyancyData;
 
@@ -133,14 +135,14 @@ public class WaterBody : MonoBehaviour
         initialSpectrumComputeShader.SetTexture(KERNEL_INITIAL_SPECTRUM, "_WavesDataTextures", wavesDataTextures);
         initialSpectrumComputeShader.SetBuffer(KERNEL_INITIAL_SPECTRUM, "_Wavelengths", wavelengthsBuffer);
         initialSpectrumComputeShader.SetBuffer(KERNEL_INITIAL_SPECTRUM, "_Cutoffs", cutoffsBuffer);
+        initialSpectrumComputeShader.SetBuffer(KERNEL_INITIAL_SPECTRUM, "_Fades", fadesBuffer);
+        initialSpectrumComputeShader.SetBuffer(KERNEL_INITIAL_SPECTRUM, "_Swells", swellsBuffer);
         initialSpectrumComputeShader.SetFloat("_WindSpeed", windSpeed);
         initialSpectrumComputeShader.SetFloat("_WindDirectionX", windDirection.x);
         initialSpectrumComputeShader.SetFloat("_WindDirectionY", windDirection.y);
         initialSpectrumComputeShader.SetFloat("_Gravity", gravity);
         initialSpectrumComputeShader.SetFloat("_Fetch", fetch);
         initialSpectrumComputeShader.SetFloat("_Depth", depth);
-        initialSpectrumComputeShader.SetFloat("_Fade", fade);
-        initialSpectrumComputeShader.SetFloat("_Swell", swell);
 
         initialSpectrumComputeShader.SetTexture(KERNEL_CONJUGATED_SPECTRUM, "_InitialSpectrumTextures", initialSpectrumTextures);
     }
@@ -228,17 +230,25 @@ public class WaterBody : MonoBehaviour
 
         wavelengths = new float[cascades.Length];
         cutoffs = new float[cascades.Length * 2];
+        swells = new float[cascades.Length];
+        fades = new float[cascades.Length];
 
         for(int i = 0; i < cascades.Length; i++) {
             wavelengths[i] = cascades[i].wavelength;
             cutoffs[i*2] = cascades[i].cutoffLow;
             cutoffs[i*2 + 1] = cascades[i].cutoffHigh;
+            swells[i] = cascades[i].swell;
+            fades[i] = cascades[i].fade;
         }
 
         wavelengthsBuffer = new ComputeBuffer(cascades.Length, 4, ComputeBufferType.Default);
         wavelengthsBuffer.SetData(wavelengths);
         cutoffsBuffer = new ComputeBuffer(cascades.Length * 2, 4, ComputeBufferType.Default);
         cutoffsBuffer.SetData(cutoffs);
+        swellsBuffer = new ComputeBuffer(cascades.Length, 4, ComputeBufferType.Default);
+        swellsBuffer.SetData(swells);
+        fadesBuffer = new ComputeBuffer(cascades.Length, 4, ComputeBufferType.Default);
+        fadesBuffer.SetData(fades);
 
         InitializeInitialSpectrumComputeShader();
         CalculateInitialSpectrumTextures();
@@ -292,6 +302,10 @@ public class WaterBody : MonoBehaviour
         wavelengths = null;
         cutoffsBuffer.Release();
         cutoffsBuffer = null;
+        swellsBuffer.Release();
+        swells = null;
+        fadesBuffer.Release();
+        fades = null;
 	}
 
     /* 
