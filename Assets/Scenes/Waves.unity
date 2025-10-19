@@ -26,7 +26,7 @@ RenderSettings:
   m_AmbientIntensity: 1
   m_AmbientMode: 0
   m_SubtractiveShadowColor: {r: 0.41960785, g: 0.47843137, b: 0.627451, a: 1}
-  m_SkyboxMaterial: {fileID: 10304, guid: 0000000000000000f000000000000000, type: 0}
+  m_SkyboxMaterial: {fileID: 2100000, guid: fe8e33c42bd92154e95a4b279d0d2a82, type: 2}
   m_HaloStrength: 0.5
   m_FlareStrength: 1
   m_FlareFadeSpeed: 3
@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 812126124}
-  m_IndirectSpecularColor: {r: 0.18355954, g: 0.22909091, b: 0.30554327, a: 1}
+  m_IndirectSpecularColor: {r: 0.43164054, g: 0.43164054, b: 0.43164054, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -265,7 +265,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -10.76, y: 2.8, z: -22.5}
-  m_LocalScale: {x: 27.828821, y: 13.521223, z: 8.538281}
+  m_LocalScale: {x: 13.538444, y: 13.521223, z: 8.538281}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -469,7 +469,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   wavelength: 1000
   cutoffHigh: 10000000
-  cutoffLow: 0.0001
+  cutoffLow: 0.0000001
+  swell: 0.3
+  fade: 0.2
 --- !u!1 &260698683
 GameObject:
   m_ObjectHideFlags: 0
@@ -628,6 +630,7 @@ GameObject:
   - component: {fileID: 812126125}
   - component: {fileID: 812126124}
   - component: {fileID: 812126126}
+  - component: {fileID: 812126127}
   m_Layer: 0
   m_Name: Directional Light
   m_TagString: Untagged
@@ -705,13 +708,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 812126123}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.42906263, y: -0.03566716, z: -0.56705743, w: 0.7021959}
+  m_LocalRotation: {x: 0.35281137, y: -0.12541007, z: -0.6173922, w: 0.6918261}
   m_LocalPosition: {x: 0.26, y: 5.7, z: -0.45}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 34.203, y: -40.461, z: -90.783}
+  m_LocalEulerAnglesHint: {x: 160.53, y: -220.25, z: -270.687}
 --- !u!114 &812126126
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -735,6 +738,71 @@ MonoBehaviour:
   m_LightCookieSize: {x: 1, y: 1}
   m_LightCookieOffset: {x: 0, y: 0}
   m_SoftShadowQuality: 0
+--- !u!114 &812126127
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 812126123}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f67417c030a8fd04fa43d8ff90994d8f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  colorByElevation:
+    serializedVersion: 2
+    key0: {r: 1, g: 1, b: 1, a: 1}
+    key1: {r: 1, g: 1, b: 1, a: 1}
+    key2: {r: 0, g: 0, b: 0, a: 0}
+    key3: {r: 0, g: 0, b: 0, a: 0}
+    key4: {r: 0, g: 0, b: 0, a: 0}
+    key5: {r: 0, g: 0, b: 0, a: 0}
+    key6: {r: 0, g: 0, b: 0, a: 0}
+    key7: {r: 0, g: 0, b: 0, a: 0}
+    ctime0: 0
+    ctime1: 65535
+    ctime2: 0
+    ctime3: 0
+    ctime4: 0
+    ctime5: 0
+    ctime6: 0
+    ctime7: 0
+    atime0: 0
+    atime1: 65535
+    atime2: 0
+    atime3: 0
+    atime4: 0
+    atime5: 0
+    atime6: 0
+    atime7: 0
+    m_Mode: 0
+    m_ColorSpace: -1
+    m_NumColorKeys: 2
+    m_NumAlphaKeys: 2
+  transmittanceLUTWidth: 64
+  transmittanceLUTHeight: 256
+  multiscatteringLUTWidth: 64
+  multiscatteringLUTHeight: 64
+  skyViewLUTWidth: 256
+  skyViewLUTHeight: 128
+  planetRadius: 6360000
+  atmosphereRadius: 6420000
+  rayleighScatteringCoefficient: {x: 0.000005802, y: 0.000013558, z: 0.000065}
+  rayleighAbsorptionCoefficient: {x: 0, y: 0, z: 0}
+  rayleighScaleHeight: 8000
+  mieScatteringCoefficient: {x: 0.000003996, y: 0.000003996, z: 0.000003996}
+  mieAbsorptionCoefficient: {x: 0.0000044, y: 0.0000044, z: 0.0000044}
+  mieScaleHeight: 1200
+  g: 0.86
+  ozoneScatteringCoefficient: {x: 0, y: 0, z: 0}
+  ozoneAbsorptionCoefficient: {x: 0.00000065, y: 0.000001881, z: 0.000000085}
+  groundAlbedo: {x: 0, y: 0, z: 0}
+  transmittanceLUT: {fileID: 0}
+  transmittanceLUTComputeShader: {fileID: 7200000, guid: 2652506ec2b62784d8285f21b7f90bee, type: 3}
+  multiscatteringLUTComputeShader: {fileID: 7200000, guid: 780cef73acee1884996c7fcd60ea6db7, type: 3}
+  skyViewLUTComputeShader: {fileID: 7200000, guid: beb1304f910444843a21ab4cf4def0cb, type: 3}
+  material: {fileID: 2100000, guid: fe8e33c42bd92154e95a4b279d0d2a82, type: 2}
 --- !u!1 &938541066
 GameObject:
   m_ObjectHideFlags: 0
@@ -1180,7 +1248,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   wavelength: 201
   cutoffHigh: 1000000
-  cutoffLow: 0.001
+  cutoffLow: 0.00001
+  swell: 0.1
+  fade: 0.1
 --- !u!1 &1331746634
 GameObject:
   m_ObjectHideFlags: 0
@@ -1232,18 +1302,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8144eb6a18adf2041be09adb818c8470, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  windSpeed: 10
+  windSpeed: 8
   windDirection: {x: 1, y: -1}
   gravity: 9.81
   fetch: 50000
   depth: 2560
-  swell: 0.5
-  fade: 0.1
   density: 1
   drag: 10
   angularDrag: 1
   material: {fileID: 2100000, guid: b05126d617d6f3a4db1739c1e52c59d7, type: 2}
-  texturesSize: 256
+  texturesSize: 512
   initialSpectrumComputeShader: {fileID: 7200000, guid: 144b0692df3a18a428518879543d9214, type: 3}
   timeDependentSpectrumComputeShader: {fileID: 7200000, guid: 84d67561ad62d72469e299e5019e0a39, type: 3}
   IFFTComputeShader: {fileID: 7200000, guid: f19e8a0c2e58e754693e824f6b04256d, type: 3}
@@ -1252,7 +1320,6 @@ MonoBehaviour:
   - {fileID: 1337616535}
   - {fileID: 153976619}
   - {fileID: 1106218546}
-  - {fileID: 1651070122}
 --- !u!23 &1331746640
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -1363,7 +1430,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   wavelength: 1530
   cutoffHigh: 1e+12
-  cutoffLow: 0.000000001
+  cutoffLow: 1e-10
+  swell: 0.4
+  fade: 0.1
 --- !u!1 &1634312897
 GameObject:
   m_ObjectHideFlags: 0
@@ -1501,8 +1570,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   wavelength: 34
-  cutoffHigh: 100
-  cutoffLow: 0.1
+  cutoffHigh: 10
+  cutoffLow: 0.001
+  swell: 0.4
+  fade: 0.1
 --- !u!4 &1651070123
 Transform:
   m_ObjectHideFlags: 0

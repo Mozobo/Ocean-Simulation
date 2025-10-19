@@ -40,31 +40,31 @@ Material:
     - _EX: 0.42
     - _EY: 1
     - _EnvironmentReflectionStrength: 1
-    - _FoamBlending: 0.704
-    - _FoamThreshold: 0.491
+    - _FoamBlending: 0
+    - _FoamThreshold: 0
     - _K1: 0.91
     - _K2: 0
     - _K3: 0
     - _K4: 0
     - _LODScale: 15
-    - _MaxLODLevel: 7
+    - _MaxLODLevel: 10
     - _MaxTesselationDistance: 6000
     - _ReflectionStrength: 1
-    - _RefractionStrength: 0.5
+    - _RefractionStrength: 0.25
     - _Roughness: 0.084
     - _ScatteringCoefficient: 0.117
     - _ShadowSofteningRadius: 1.55
-    - _ShadowsIntensity: 0.581
+    - _ShadowsIntensity: 0.34
     - _SoftShadowRadius: 1.3
     - _SpecularTerm: 1
-    - _SubsurfaceScatteringIntensity: 0.021
-    - _SunReflectionStrength: 0.349
-    - _TesselationDecayFactor: 5.77
+    - _SubsurfaceScatteringIntensity: 0.02
+    - _SunReflectionStrength: 1
+    - _TesselationDecayFactor: 10
     - _TesselationLevel: 60
-    - _WaterFogDensity: 0.343
+    - _WaterFogDensity: 0.22
     m_Colors:
     - _BubblesColor: {r: 0.6537469, g: 0.7183829, b: 0.7830189, a: 1}
-    - _Color: {r: 0, g: 0.08694548, b: 0.2924528, a: 1}
+    - _Color: {r: 0, g: 0.090566024, b: 0.3018868, a: 1}
     - _FoamColor: {r: 1, g: 1, b: 1, a: 0.4627451}
     - _ScatterColor: {r: 0, g: 1, b: 0.8527441, a: 1}
     - _ShadowsColor: {r: 0, g: 0, b: 0, a: 1}
