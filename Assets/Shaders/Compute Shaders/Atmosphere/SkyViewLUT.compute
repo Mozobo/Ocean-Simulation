@@ -82,8 +82,6 @@ float3 SampleMultiscatteringLUT(float radius, float cosAngle) {
 
 [numthreads(8,8,1)]
 void ComputeSkyViewLUT (uint3 id : SV_DispatchThreadID) {
-    const float3 up = float3(0.0, 1.0, 0.0);
-
     float longitude = lerp(-PI, PI, (id.x + 0.5) / (_LutWidth - 1.0));
     float v = lerp(1.0, 0.0, (id.y + 0.5) / (_LutHeight - 1.0));
 
@@ -127,7 +125,7 @@ void ComputeSkyViewLUT (uint3 id : SV_DispatchThreadID) {
         float mieDensity = exp(-sampleHeight/_MieScaleHeight);
         float ozoneDensity = max(0.0, 1.0 - (sampleHeight - 25000) / 15000);
 
-        float cosSunAngle = dot(up, sunDirection);
+        float cosSunAngle = dot(normalize(samplePosition), sunDirection);
         float3 transmittanceToSun = SampleTransmittanceLUT(sampleRadius, cosSunAngle);
         float3 inscattering = transmittanceToSun * (rayleighDensity * rayleighPhase + mieDensity * miePhase);
         float3 sampleScattering = _RayleighScatteringCoefficient * rayleighDensity + _MieScatteringCoefficient * mieDensity + _OzoneScatteringCoefficient * ozoneDensity;
