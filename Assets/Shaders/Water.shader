@@ -179,12 +179,12 @@ Shader "Custom/Water" {
 
             // Returns the reflection of the sky color by sampling the skybox cubemap.
             half3 EnvironmentReflections (float3 viewDir, float3 normalWS) {
-                float3 reflectionDir = -reflect(viewDir, normalWS);
+                float3 reflectionDir = -reflect(viewDir, float3(0.0, 1.0, 0.0));
                 //float3 reflectionDir = normalWS; // Using only normals when sampling bright skyboxes can give better results.
                 half3 environment = SAMPLE_TEXTURECUBE(unity_SpecCube0, samplerunity_SpecCube0, reflectionDir);
                 // Multiply by pi (or any other constant of your choice) to balance the contribution in the final lighting model.  
                 // Otherwise, the sky reflection will be overshadowed by other components.
-                return environment * M_PI * _EnvironmentReflectionStrength;
+                return environment * M_PI/2.0 * _EnvironmentReflectionStrength;
             }
             
             // Code source: https://rtarun9.github.io/blogs/physically_based_rendering/#what-is-physically-based-rendering
@@ -360,6 +360,7 @@ Shader "Custom/Water" {
                 refraction += SubsurfaceScatteringApproximation(input.positionWS.y, lightDir, -input.viewDir);
 
                 half3 reflections = EnvironmentReflections(input.viewDir, normalWS);
+                refraction *= reflections;
                 float nu = _EX * 10.0 * (1.0 - _Roughness); // Controls anisotropy along x-axis
                 float nv = _EY * 10.0 * (1.0 - _Roughness);  // Controls anisotropy along z-axis
                 half3 ashikhminShirleySpec = AshikhminShirleyBRDF(halfwayVec, input.viewDir, lightDir, normalWS, fresnelH, nu, nv);
