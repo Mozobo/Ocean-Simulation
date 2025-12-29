@@ -12,7 +12,7 @@ Real-time rendering of realistic ocean-like water surfaces using the Inverse Fas
 - [Ocean spectrum](#ocean-spectrum)
 - [IFFT](#ifft)
 - [Cascades](#cascades)
-- [Shader](#shader)
+- [Water shader](#water-shader)
   - [Tessellation](#tessellation)
   - [Vertex displacement, normals and LODs](#vertex-displacement-normals-and-lods)
   - [Refraction and underwater fog](#refraction-and-underwater-fog)
@@ -21,6 +21,7 @@ Real-time rendering of realistic ocean-like water surfaces using the Inverse Fas
   - [Sun reflections](#sun-reflections)
   - [Shadows](#shadows)
   - [Final light model](#final-light-model)
+- [Sky rendering](#sky-rendering)
 - [Buoyancy](#buoyancy)
 - [References](#references)
 
@@ -152,7 +153,7 @@ In Unity, this functionality is implemented using [RenderTexture](https://docs.u
 ![CascadesExample](https://github.com/user-attachments/assets/ba79956d-2529-44d0-9eab-1ca6c2079e18)
 <p align="center">Ocean with three cascades. No visible tiling.</p>
 
-## Shader
+## Water shader
 
 ### Tessellation
 
@@ -351,6 +352,103 @@ https://github.com/user-attachments/assets/43178a34-5ee0-40db-9d9c-4249d91813a9
 <p align="center">Examples of the final light model with Unity's default skybox. Sky reflection using only normals.</p>
 
 
+## Sky rendering
+
+I thought Unity's default skybox wasn't good enough, so I decided to implement a physically based sky rendering model following the paper [_A Scalable and Production Ready Sky and Atmosphere Rendering Technique_](https://sebh.github.io/publications/egsr2020.pdf) by Sébastien Hillaire. In his publication, the method combines sky and space view. For this project I've only implemented the sky rendering, since the camera remains within the atmosphere and the scene does not contain large-scale geometry that would benefit from Aerial Perspective LUT to be computed (even though it reuses most of the things for the sky rendering, so it can be implemented easily).
+
+The sky rendering pipeline is based on three precomputed lookup tables (LUTs):
+
+<p align="center">
+  <img width="30%" height="30%" alt="LUTs dependency graph" src="https://github.com/user-attachments/assets/599311cf-2b0c-419d-a7db-763c0d06aabb" />
+</p>
+<p align="center">
+  Dependency graph for the LUTs of the sky rendering method.
+</p>
+
+Transmittance LUT ([```TransmittanceLUT.compute```](https://github.com/Mozobo/Ocean-Simulation/blob/main/Assets/Shaders/Compute%20Shaders/Atmosphere/TransmittanceLUT.compute)) stores the fraction of sunlight that reaches a point in the atmosphere without being absorbed or scattered out of the ray. 
+- X axis represents altitude above the planet surface, in the range:
+```math 
+[0, \space R_{atmosphere} - R_{planet}]
+```
+- Y axis represents the cosine of the angle between sun and zenith, in the range:
+```math 
+[-1, \space 1]
+```
+This texture only needs to be computed once at the beginning of execution or when atmosphere params change.
+
+<p align="center">
+  <img width="83" height="275" alt="Transmittance LUT" src="https://github.com/user-attachments/assets/1299752c-a924-445f-a7e8-c3600ba86906" />
+</p>
+<p align="center">
+  Example result of transmittance LUT.
+</p>
+
+
+Multiscattering LUT ([```MultiscatteringLUT.compute```](https://github.com/Mozobo/Ocean-Simulation/blob/main/Assets/Shaders/Compute%20Shaders/Atmosphere/MultiscatteringLUT.compute)) stores the integrated contribution of all higher-order scattering events. 
+- X axis represents altitude above the planet surface, in the range:
+```math 
+[0, \space R_{atmosphere} - R_{planet}]
+```
+- Y axis represents the cosine of the angle between sun and zenith, in the range:
+```math 
+[-1, \space 1]
+```
+This texture only needs to be computed once at the beginning of execution or when atmosphere params change.
+
+<p align="center">
+  <img width="97" height="98" alt="Multiscattering LUT" src="https://github.com/user-attachments/assets/da73a610-00b0-4156-af2e-3197abe1e760" />
+</p>
+<p align="center">
+  Example result of multiscattering LUT.
+</p>
+
+
+Sky View LUT ([```SkyViewLUT.compute```](https://github.com/Mozobo/Ocean-Simulation/blob/main/Assets/Shaders/Compute%20Shaders/Atmosphere/SkyViewLUT.compute)) stores the final sky radiance for each view direction. 
+- X axis represents azimuthal angle, in the range:
+```math 
+[-π, \space π]
+```
+- Y axis represents altitudinal angle, in the range:
+```math 
+[-π/2, \space π/2]
+```
+This LUT must be recomputed every frame when the sun moves. If the sun direction is fixed in your project, this LUT can be treated similarly to the other ones.
+
+<p align="center">
+  <img width="275" height="146" alt="Sky View LUT" src="https://github.com/user-attachments/assets/a7853a1a-b09f-4888-b698-26dc744218f2" />
+</p>
+<p align="center">
+  Example result of sky view LUT.
+</p>
+
+Then [```Atmosphere.shader```](https://github.com/Mozobo/Ocean-Simulation/blob/main/Assets/Shaders/Atmosphere.shader) directly samples the sky view LUT and adds a circular shape for the sun.
+
+https://github.com/user-attachments/assets/c0c994f5-2820-49a0-a0c2-e17e2ea3b425
+<p align="center">
+  Realtime sky rendering.
+</p>
+
+Half of the sky view LUT is black because it represents the surface of the planet. This might not look great when used in projects where terrain and other object don't cover enough skybox. If you need the skybox to be completely sky-colored, you can replace lines 95-96 in [```SkyViewLUT.compute```](https://github.com/Mozobo/Ocean-Simulation/blob/main/Assets/Shaders/Compute%20Shaders/Atmosphere/SkyViewLUT.compute)
+```
+if (v < 0.5) latitude = (1.0 - latitude) * zenithHorizonAngle;
+else latitude = zenithHorizonAngle + latitude * beta;
+```
+with
+```
+latitude = (1.0 - latitude) * zenithHorizonAngle;
+```
+
+It will mirror the upper half:
+
+<p align="center">
+  <img width="255" height="125" alt="Mirrored sky view LUT" src="https://github.com/user-attachments/assets/f10dd0fd-94bb-4a94-9a17-f4883d245315" />
+</p>
+<p align="center">
+  Sky view LUT after latitude modification, lower half is a mirrored version of upper half.
+</p>
+
+> [!NOTE]
+> I will be using this modification for the videos showcasing all features.
 
 ## Buoyancy
 
@@ -518,6 +616,16 @@ Iten, Dorian. (n.d.). Understanding the Fresnel Effect. Dorian Iten. https://www
 Wikipedia contributors. (2024, Dec 26). Schlick’s approximation. Wikipedia. https://en.wikipedia.org/wiki/Schlick%27s_approximation
 
 Mihelich, Mark & Tcheblokov, Tim. (2019, Mar 18). Wakes, Explosions and Lighting: Interactive Water Simulation in 'ATLAS'. Game Developers Conference. https://gpuopen.com/gdc-presentations/2019/gdc-2019-agtd6-interactive-water-simulation-in-atlas.pdf
+
+<br>
+
+**Sky rendering**
+
+Hillaire, Sébastien. (2020). A Scalable and Production Ready Sky and Atmosphere Rendering Technique. Eurographics Symposium on Rendering (EGSR) 2020. https://sebh.github.io/publications/egsr2020.pdf
+
+AndrewHelmer. (2021, Jul 26). Production Sky Rendering. Shadertoy. https://www.shadertoy.com/view/slSXRW
+
+fgarlin. (2023, Feb 8).  Physically-based sky. Shadertoy. https://www.shadertoy.com/view/msXXDS
 
 <br>
 
