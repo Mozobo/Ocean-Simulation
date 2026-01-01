@@ -35,7 +35,7 @@ public class AtmosphereController : MonoBehaviour
 
     public Vector3 groundAlbedo = new Vector3(0.0f, 0.0f, 0.0f);
 
-    public RenderTexture transmittanceLUT;
+    private RenderTexture transmittanceLUT;
     private RenderTexture multiscatteringLUT;
     private RenderTexture skyViewLUT;
 
@@ -126,9 +126,13 @@ public class AtmosphereController : MonoBehaviour
         skyViewLUTComputeShader.Dispatch(KERNEL_SKYVIEW_LUT, skyViewLUTWidth/LOCAL_WORK_GROUPS_X, skyViewLUTHeight/LOCAL_WORK_GROUPS_Y, 1);
     }
 
+    // Turns transmittance LUT into a ColorGradient that can be sampled in realtime by the CPU (because RenderTexture sampling in the CPU introduces latency). 
+    // This gradient will be used to change the color of the light that represents the sun.
     private void TurnTransmittanceIntoColorGradient() {
+        // Bind the LUT render texture so ReadPixels reads from it.
         RenderTexture.active = transmittanceLUT;
 
+        // Unity RenderTextures live on the GPU; to sample them on the CPU we must copy their contents into a Texture2D.
         Texture2D readableTex = new Texture2D(transmittanceLUT.width, transmittanceLUT.height, TextureFormat.RGBA32, false);
         readableTex.ReadPixels(new Rect(0, 0, transmittanceLUT.width, transmittanceLUT.height), 0, 0);
         readableTex.Apply();
@@ -137,6 +141,7 @@ public class AtmosphereController : MonoBehaviour
 
         colorBySunElevation = new Gradient();
 
+        // Gradients are limited to a maximum of 8 color keys and 8 alpha keys.
         const int sampleCount = 8;
         float[] intervals = new float[] { 0.01f, 0.14f, 0.28f, 0.36f, 0.57f, 0.75f, 0.86f, 0.99f };
         GradientColorKey[] colorKeys = new GradientColorKey[sampleCount];
@@ -145,7 +150,7 @@ public class AtmosphereController : MonoBehaviour
         for (int i = 0; i < sampleCount; i++)
         {
             float t = intervals[i];
-            Color color = readableTex.GetPixelBilinear(0f, t) * 2.5f;
+            Color color = readableTex.GetPixelBilinear(0f, t) * 2.5f; // Adjust brightness as needed.
             colorKeys[i] = new GradientColorKey(color, t);
             alphaKeys[i] = new GradientAlphaKey(1.0f, t);
         }
@@ -182,9 +187,11 @@ public class AtmosphereController : MonoBehaviour
         skyViewLUTComputeShader.SetVector("_SunDirection", -this.transform.forward);
         ComputeSkyViewLUT();
 
-        // Compute the sun's elevation: 1 on zenith, -1 when below the horizon.
-        // Remap the range [-1, 1] to [0, 1] for sampling the color gradient.
-        float sunElevation = (Vector3.Dot(this.transform.forward, Vector3.down) + 1f) * 0.5f; 
+        // Compute the cosine of the angle between sun and zenith, in range: [-1, 1]
+        // Range [-1, 1] is remapped to [0, 1] for sampling the color gradient.
+        float sunElevation = (Vector3.Dot(this.transform.forward, Vector3.down) + 1f) * 0.5f;
+
+        // Assign sampled color to light, so all other elements in scene are affected by the new light color.
         sunLight.color = colorBySunElevation.Evaluate(sunElevation);
     }
 }

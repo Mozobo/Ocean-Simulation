@@ -38,6 +38,8 @@ Shader "Custom/Atmosphere"
             TEXTURE2D(_SkyViewLUT);
             SAMPLER(sampler_SkyViewLUT);
 
+            // Sample sky view LUT.
+            // https://sebh.github.io/publications/egsr2020.pdf (Section 5.3)
             float4 SampleSkyLUT(float3 rayDir) {
                 rayDir = normalize(rayDir);
             
@@ -75,7 +77,7 @@ Shader "Custom/Atmosphere"
             float4 frag (v2f i) : SV_Target
             {
                 float4 sunColor = SunShape(_MainLightPosition, i.viewDir) * _MainLightColor;
-                float4 skyColor = SampleSkyLUT(i.viewDir) * 2;
+                float4 skyColor = SampleSkyLUT(i.viewDir) * 2; // Give it a bit more bightness by multiplying by a custom constant.
 
                 return sunColor + skyColor;
             }

@@ -22,6 +22,7 @@ float3 _OzoneAbsorptionCoefficient;
 
 RWTexture2D<float4> _TransmittanceLUT;
 
+// https://sebh.github.io/publications/egsr2020.pdf (formula 2)
 [numthreads(8,8,1)]
 void ComputeTransmittanceLUT (uint3 id : SV_DispatchThreadID) {
     float radius = lerp(0.0, _AtmosphereRadius - _PlanetRadius, (id.x + 0.5) / _LutWidth) + _PlanetRadius;

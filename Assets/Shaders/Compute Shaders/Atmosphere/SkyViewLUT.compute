@@ -30,6 +30,8 @@ Texture2D<float4> _MultiscatteringLUT;
 SamplerState sampler_MultiscatteringLUT;
 RWTexture2D<float4> _SkyViewLUT;
 
+// Computes the segment of a ray that travels through the atmosphere.
+// Returns true if the ray hits the planet surface, false otherwise.
 bool ComputeAtmosphereTraversalAndPlanetHit(float radius, float cosAngle, out float startDistance, out float endDistance) {
     float offset = -radius * cosAngle;
     float radius2 = radius * radius;
@@ -49,6 +51,8 @@ bool ComputeAtmosphereTraversalAndPlanetHit(float radius, float cosAngle, out fl
     }
 }
 
+// Computes the Mie phase function.
+// https://sebh.github.io/publications/egsr2020.pdf (Section 4)
 float GetMiePhase(float cosTheta) {
     float scale = 3.0 / (8.0 * PI);
     
@@ -58,12 +62,16 @@ float GetMiePhase(float cosTheta) {
     return scale * num / denom;
 }
 
+// Computes the Rayleigh phase function.
+// https://sebh.github.io/publications/egsr2020.pdf (Section 4)
 float GetRayleighPhase(float cosTheta) {
     float scale = 3.0 / (16.0 * PI);
 
     return scale * (1.0 + cosTheta * cosTheta);
 }
 
+// Samples transmittance LUT.
+// https://sebh.github.io/publications/egsr2020.pdf (Section 5.5.2)
 float3 SampleTransmittanceLUT(float radius, float cosAngle) {
     float2 uv = float2(
         clamp((radius - _PlanetRadius) / (_AtmosphereRadius - _PlanetRadius), 0.0, 1.0),
@@ -72,6 +80,8 @@ float3 SampleTransmittanceLUT(float radius, float cosAngle) {
     return _TransmittanceLUT.SampleLevel(sampler_TransmittanceLUT, uv, 0).rgb;
 }
 
+// Samples multiscattering LUT.
+// https://sebh.github.io/publications/egsr2020.pdf (Section 5.5.2)
 float3 SampleMultiscatteringLUT(float radius, float cosAngle) {
     float2 uv = float2(
         clamp((radius - _PlanetRadius) / (_AtmosphereRadius - _PlanetRadius), 0.0, 1.0),
