@@ -48,7 +48,7 @@ Material:
     - _K4: 0
     - _LODScale: 15
     - _MaxLODLevel: 10
-    - _MaxTesselationDistance: 6000
+    - _MaxTesselationDistance: 10000
     - _ReflectionStrength: 1
     - _RefractionStrength: 0.25
     - _Roughness: 0.084
