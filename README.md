@@ -2,8 +2,9 @@
 
 Real-time rendering of realistic ocean-like water surfaces using the Inverse Fast Fourier Transform (IFFT), in combination with the Joint North Sea Wave Project (JONSWAP) spectrum and the Texel-Marsen-Arsloe (TMA) modification, within Unity's Universal Render Pipeline (URP).
 
-![Example1](https://github.com/user-attachments/assets/265e1199-d809-4fbd-9963-1ee67f06e730)
-<img src="https://github.com/user-attachments/assets/51d26db7-0fc2-414b-8105-44ffd0447103" alt="Example1" width="49.5%"/> <img src="https://github.com/user-attachments/assets/3bf36866-2396-4d7a-85f2-b4f753ab98c6" alt="Example2" width="49.5%"/>
+https://github.com/user-attachments/assets/bffbf14b-2b64-4725-a1c1-619cd0fdfdaf
+
+<img src="https://github.com/user-attachments/assets/51d26db7-0fc2-414b-8105-44ffd0447103" alt="Example1" width="49.5%"/> <img src="https://github.com/user-attachments/assets/5a3b7418-eacb-46c0-b1f8-011b08364fa5" alt="Example2" width="49.5%"/>
 
 
 ## Table of contents
@@ -306,7 +307,7 @@ The final light model combines the previous sections. There are two main light g
 The underwater group is determined by the refracted and attenuated light, as well as subsurface scattering:
 
 ```math
-L_{underwater} = L_{refraction + fog} + L_{SSS}
+L_{underwater} = (L_{refraction + fog} + L_{SSS}) · L_{surface}
 ```
 
 The surface group consists of sky reflection and direct sunlight reflection, modulated by shadow occlusion:
@@ -446,9 +447,6 @@ It will mirror the upper half:
 <p align="center">
   Sky view LUT after latitude modification, lower half is a mirrored version of upper half.
 </p>
-
-> [!NOTE]
-> I will be using this modification for the videos showcasing all features.
 
 ## Buoyancy
 
